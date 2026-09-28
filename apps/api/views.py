@@ -126,13 +126,19 @@ class RoutePlanMapView(View):
             "stop_penalty": request.GET.get("stop_penalty", f"{settings.STOP_PENALTY_USD:g}"),
             "corridor_miles": request.GET.get("corridor_miles", f"{settings.CORRIDOR_MILES:g}"),
         }
+        tiles = settings.MAP_TILES
         if not request.GET:
-            return render(request, self.template_name, {"form": form})
+            return render(request, self.template_name, {"form": form, "tiles": tiles})
 
         serializer = RoutePlanRequestSerializer(data=request.GET)
         if not serializer.is_valid():
             error = {"detail": "Invalid request.", "code": "invalid", "errors": serializer.errors}
-            return render(request, self.template_name, {"form": form, "error": error}, status=400)
+            return render(
+                request,
+                self.template_name,
+                {"form": form, "error": error, "tiles": tiles},
+                status=400,
+            )
 
         plan_request = serializer.to_plan_request()
         try:
@@ -145,7 +151,7 @@ class RoutePlanMapView(View):
             return render(
                 request,
                 self.template_name,
-                {"form": form, "error": error},
+                {"form": form, "error": error, "tiles": tiles},
                 status=api_exc.status_code,
             )
 

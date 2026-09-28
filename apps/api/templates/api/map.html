@@ -109,20 +109,21 @@
   <div id="map"></div>
 </div>
 
+{{ tiles|json_script:"tile-config" }}
 {% if plan %}{{ plan|json_script:"plan-data" }}{% endif %}
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
         integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script>
 (function () {
   var map = L.map('map', { zoomControl: true });
-  // CARTO basemaps: free for light use with attribution, and unlike the OSM public tile
-  // server they do not block requests that carry no Referer (Django sends
-  // Referrer-Policy: same-origin by default).
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-    subdomains: 'abcd',
+  var tiles = JSON.parse(document.getElementById('tile-config').textContent);
+  L.tileLayer(tiles.url, {
+    subdomains: tiles.subdomains,
     maxZoom: 19,
+    // Send our origin as Referer even though Django sets Referrer-Policy: same-origin;
+    // some tile servers (OSM) refuse anonymous requests.
     referrerPolicy: 'strict-origin-when-cross-origin',
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+    attribution: tiles.attribution
   }).addTo(map);
 
   var el = document.getElementById('plan-data');

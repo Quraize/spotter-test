@@ -30,6 +30,16 @@ env = environ.Env(
     API_THROTTLE_RATE=(str, "60/min"),
     SECURE_SSL_REDIRECT=(bool, False),
     SECURE_HSTS_SECONDS=(int, 0),
+    MAP_TILE_URL=(
+        str,
+        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer"
+        "/tile/{z}/{y}/{x}",
+    ),
+    MAP_TILE_ATTRIBUTION=(
+        str,
+        "Tiles &copy; Esri &mdash; Esri, HERE, Garmin, OpenStreetMap contributors",
+    ),
+    MAP_TILE_SUBDOMAINS=(str, "abc"),
 )
 environ.Env.read_env(BASE_DIR / ".env")
 
@@ -146,6 +156,14 @@ VEHICLE_RANGE_MILES = 500.0
 VEHICLE_MPG = 10.0
 CORRIDOR_MILES = 10.0  # city-centroid geocoding needs slack; 5 mi drops too many stations
 STOP_PENALTY_USD = 10.0  # driver time per stop; 0 = pure cost minimum (many tiny stops)
+
+# Basemap for the HTML map page. Esri World Street Map needs no key. The OSM public tile
+# server also works but only when the browser sends a Referer (see MAP_TILE_URL in .env.example).
+MAP_TILES = {
+    "url": env("MAP_TILE_URL"),
+    "attribution": env("MAP_TILE_ATTRIBUTION"),
+    "subdomains": env("MAP_TILE_SUBDOMAINS"),
+}
 
 # Ordered fallback chains; the first usable provider is primary.
 ROUTING_PROVIDERS = env("ROUTING_PROVIDERS")
