@@ -23,6 +23,9 @@ dev = [
     "respx>=0.22",
 ]
 
+[tool.uv]
+package = false  # application, not a library: uv sync installs deps only
+
 [tool.ruff]
 line-length = 100
 target-version = "py313"

@@ -1,0 +1,29 @@
+services:
+  api:
+    build: .
+    image: spotter-fuel-router:latest
+    container_name: spotter-fuel-router
+    env_file: .env
+    environment:
+      DATABASE_URL: sqlite:////app/var/db.sqlite3
+      DEBUG: "False"
+    ports:
+      # Host port is configurable so this can sit next to other projects on one box.
+      - "${SPOTTER_HOST_BIND:-127.0.0.1}:${SPOTTER_PORT:-8081}:8000"
+    volumes:
+      - spotter-var:/app/var
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys, urllib.request as u; sys.exit(0 if u.urlopen('http://127.0.0.1:8000/api/v1/health/', timeout=4).status == 200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  spotter-var:

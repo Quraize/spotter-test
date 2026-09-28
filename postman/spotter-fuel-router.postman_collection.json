@@ -1,0 +1,171 @@
+{
+  "info": {
+    "name": "Spotter Fuel Router",
+    "description": "Route planning with cost-optimal fuel stops. Set the `base_url` variable (default http://127.0.0.1:8000).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://127.0.0.1:8000" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "request": { "method": "GET", "url": "{{base_url}}/api/v1/health/" }
+    },
+    {
+      "name": "Plan: Chicago → Dallas (GET)",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{base_url}}/api/v1/route-plan/?start=Chicago, IL&finish=Dallas, TX",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "route-plan", ""],
+          "query": [
+            { "key": "start", "value": "Chicago, IL" },
+            { "key": "finish", "value": "Dallas, TX" }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('200 OK', () => pm.response.to.have.status(200));",
+              "const b = pm.response.json();",
+              "pm.test('at most one upstream routing call', () => pm.expect(b.external_calls.count).to.be.at.most(3));",
+              "pm.test('has stops and a total', () => { pm.expect(b.fuel_stops.length).to.be.above(0); pm.expect(b.summary.total_fuel_cost).to.be.above(0); });",
+              "pm.test('fuel is conserved', () => pm.expect(Math.abs(b.summary.total_gallons_purchased - b.summary.gallons_consumed - b.summary.fuel_at_finish_gallons + b.vehicle.tank_gallons * (b.assumptions.initial_fuel_miles / b.vehicle.range_miles))).to.be.below(0.05));",
+              "console.log('map:', b.map_url);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Plan: Chicago → Dallas again (cached, 0 upstream calls)",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{base_url}}/api/v1/route-plan/?start=Chicago, IL&finish=Dallas, TX&include_geometry=false",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "route-plan", ""],
+          "query": [
+            { "key": "start", "value": "Chicago, IL" },
+            { "key": "finish", "value": "Dallas, TX" },
+            { "key": "include_geometry", "value": "false" }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('200 OK', () => pm.response.to.have.status(200));",
+              "pm.test('served from cache: zero upstream calls', () => pm.expect(pm.response.json().external_calls.count).to.eql(0));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Plan: Los Angeles → New York (POST)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{base_url}}/api/v1/route-plan/",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"start\": \"Los Angeles, CA\",\n  \"finish\": \"New York, NY\",\n  \"include_geometry\": false\n}"
+        }
+      }
+    },
+    {
+      "name": "Plan: street address → Miami, full tank",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{base_url}}/api/v1/route-plan/?start=1600 Pennsylvania Ave NW, Washington, DC&finish=Miami, FL&initial_fuel_miles=500&include_geometry=false",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "route-plan", ""],
+          "query": [
+            { "key": "start", "value": "1600 Pennsylvania Ave NW, Washington, DC" },
+            { "key": "finish", "value": "Miami, FL" },
+            { "key": "initial_fuel_miles", "value": "500" },
+            { "key": "include_geometry", "value": "false" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Plan: coordinates in, pure cost optimum (stop_penalty=0)",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{base_url}}/api/v1/route-plan/?start=33.749,-84.388&finish=36.162,-86.781&stop_penalty=0&include_geometry=false",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "route-plan", ""],
+          "query": [
+            { "key": "start", "value": "33.749,-84.388", "description": "Atlanta" },
+            { "key": "finish", "value": "36.162,-86.781", "description": "Nashville" },
+            { "key": "stop_penalty", "value": "0" },
+            { "key": "include_geometry", "value": "false" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Error: location outside the USA (422)",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{base_url}}/api/v1/route-plan/?start=43.65,-79.38&finish=Dallas, TX",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "route-plan", ""],
+          "query": [
+            { "key": "start", "value": "43.65,-79.38", "description": "Toronto" },
+            { "key": "finish", "value": "Dallas, TX" }
+          ]
+        }
+      },
+      "event": [
+        { "listen": "test", "script": { "exec": ["pm.test('422 with code', () => { pm.response.to.have.status(422); pm.expect(pm.response.json().code).to.eql('unresolvable_location'); });"] } }
+      ]
+    },
+    {
+      "name": "Error: missing parameter (400)",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{base_url}}/api/v1/route-plan/?start=Chicago, IL",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "route-plan", ""],
+          "query": [{ "key": "start", "value": "Chicago, IL" }]
+        }
+      },
+      "event": [
+        { "listen": "test", "script": { "exec": ["pm.test('400 invalid', () => { pm.response.to.have.status(400); pm.expect(pm.response.json().code).to.eql('invalid'); });"] } }
+      ]
+    },
+    {
+      "name": "Map page (HTML)",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{base_url}}/api/v1/route-plan/map/?start=Chicago, IL&finish=Dallas, TX",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "route-plan", "map", ""],
+          "query": [
+            { "key": "start", "value": "Chicago, IL" },
+            { "key": "finish", "value": "Dallas, TX" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "OpenAPI schema",
+      "request": { "method": "GET", "url": "{{base_url}}/api/schema/" }
+    }
+  ]
+}
