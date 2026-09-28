@@ -116,9 +116,9 @@
 <script>
 (function () {
   var map = L.map('map', { zoomControl: true });
-  var tiles = JSON.parse(document.getElementById('tile-config').textContent);
-  L.tileLayer(tiles.url, {
-    subdomains: tiles.subdomains,
+  var tiles = JSON.parse(document.getElementById('tile-config').textContent) || {};
+  L.tileLayer(tiles.url || 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    subdomains: tiles.subdomains || 'abc',
     maxZoom: 19,
     // Send our origin as Referer even though Django sets Referrer-Policy: same-origin;
     // some tile servers (OSM) refuse anonymous requests.
