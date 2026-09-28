@@ -6,6 +6,8 @@ from __future__ import annotations
 
 import shapely
 from django.conf import settings
+from django.urls import reverse
+from django.utils.http import urlencode
 from rest_framework import serializers
 
 from apps.api.services import PlanRequest, PlanResult
@@ -185,6 +187,16 @@ class RoutePlanResponseSerializer(serializers.Serializer):
     assumptions = serializers.SerializerMethodField()
     external_calls = serializers.SerializerMethodField()
     timings_ms = serializers.DictField(child=serializers.FloatField())
+    map_url = serializers.SerializerMethodField(
+        help_text="HTML page drawing this plan on a map (same parameters, served from cache)."
+    )
+
+    def get_map_url(self, r: PlanResult) -> str:
+        from apps.api.views import plan_query  # local import: views import this module
+
+        path = reverse("api:route-plan-map") + "?" + urlencode(plan_query(r.request))
+        request = self.context.get("request")
+        return request.build_absolute_uri(path) if request is not None else path
 
     def get_route(self, r: PlanResult) -> dict:
         geometry = None

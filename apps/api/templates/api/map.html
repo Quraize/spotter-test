@@ -1,0 +1,166 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fuel Route Planner{% if plan %} — {{ plan.start.name }} → {{ plan.finish.name }}{% endif %}</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+<style>
+  :root { --bg:#f6f7f9; --panel:#fff; --ink:#1f2933; --muted:#6b7280; --line:#e5e7eb; --accent:#0f766e; --danger:#b91c1c; }
+  * { box-sizing:border-box; }
+  html, body { height:100%; margin:0; font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; color:var(--ink); background:var(--bg); }
+  .layout { display:grid; grid-template-columns:380px 1fr; height:100%; }
+  aside { background:var(--panel); border-right:1px solid var(--line); overflow:auto; padding:16px; }
+  #map { height:100%; min-height:320px; }
+  h1 { font-size:16px; margin:0 0 12px; }
+  h2 { font-size:12px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); margin:18px 0 6px; }
+  form { display:grid; gap:8px; }
+  form label { display:grid; gap:3px; font-size:12px; color:var(--muted); }
+  form input { font:inherit; padding:6px 8px; border:1px solid var(--line); border-radius:6px; width:100%; }
+  form .row { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; }
+  form button { font:inherit; padding:8px; border:0; border-radius:6px; background:var(--accent); color:#fff; cursor:pointer; }
+  .kv { display:grid; grid-template-columns:auto 1fr; gap:2px 12px; }
+  .kv dt { color:var(--muted); } .kv dd { margin:0; font-variant-numeric:tabular-nums; }
+  .total { font-size:22px; font-weight:600; margin:4px 0 8px; }
+  .stops { list-style:none; margin:0; padding:0; }
+  .stops li { display:grid; grid-template-columns:28px 1fr auto; gap:8px; padding:8px 4px; border-top:1px solid var(--line); cursor:pointer; }
+  .stops li:hover { background:var(--bg); }
+  .badge { width:24px; height:24px; border-radius:50%; background:var(--accent); color:#fff; display:grid; place-items:center; font-weight:600; font-size:12px; }
+  .badge.pre { background:#9ca3af; }
+  .name { font-weight:600; } .sub { color:var(--muted); font-size:12px; }
+  .money { text-align:right; font-variant-numeric:tabular-nums; }
+  .error { border:1px solid #fecaca; background:#fef2f2; color:var(--danger); padding:10px 12px; border-radius:6px; }
+  .footer { color:var(--muted); font-size:11px; margin-top:16px; }
+  .stop-icon { background:var(--accent); color:#fff; border:2px solid #fff; border-radius:50%; width:26px; height:26px; display:grid; place-items:center; font-weight:700; font-size:12px; box-shadow:0 1px 4px rgba(0,0,0,.4); }
+  .stop-icon.end { background:var(--danger); } .stop-icon.start { background:#15803d; }
+  .leaflet-popup-content { font-size:13px; } .leaflet-popup-content b { display:block; margin-bottom:2px; }
+  @media (max-width:800px) { .layout { grid-template-columns:1fr; grid-template-rows:auto 60vh; } aside { border-right:0; border-bottom:1px solid var(--line); } }
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside>
+    <h1>Fuel Route Planner</h1>
+    <form method="get" action="">
+      <label>Start <input name="start" value="{{ form.start }}" placeholder="City, ST · address · lat,lng" required></label>
+      <label>Finish <input name="finish" value="{{ form.finish }}" placeholder="City, ST · address · lat,lng" required></label>
+      <div class="row">
+        <label>Fuel at start (mi) <input name="initial_fuel_miles" type="number" min="0" max="500" step="1" value="{{ form.initial_fuel_miles }}"></label>
+        <label>Stop penalty ($) <input name="stop_penalty" type="number" min="0" max="1000" step="1" value="{{ form.stop_penalty }}"></label>
+        <label>Corridor (mi) <input name="corridor_miles" type="number" min="1" max="25" step="1" value="{{ form.corridor_miles }}"></label>
+      </div>
+      <button type="submit">Plan route</button>
+    </form>
+
+    {% if error %}
+      <h2>Error</h2>
+      <div class="error">
+        <div>{{ error.detail }}</div>
+        {% if error.errors %}<ul>{% for field, msgs in error.errors.items %}<li><b>{{ field }}</b>: {{ msgs|join:", " }}</li>{% endfor %}</ul>{% endif %}
+      </div>
+    {% endif %}
+
+    {% if plan %}
+      <h2>Trip</h2>
+      <dl class="kv">
+        <dt>From</dt><dd>{{ plan.start.name }}</dd>
+        <dt>To</dt><dd>{{ plan.finish.name }}</dd>
+        <dt>Distance</dt><dd>{{ plan.route.distance_miles }} mi · {{ plan.route.duration_minutes|floatformat:0 }} min</dd>
+        <dt>Vehicle</dt><dd>{{ plan.vehicle.range_miles|floatformat:0 }} mi range · {{ plan.vehicle.mpg|floatformat:0 }} mpg</dd>
+      </dl>
+
+      <h2>Fuel</h2>
+      <div class="total">${{ plan.summary.total_fuel_cost|floatformat:2 }}</div>
+      <dl class="kv">
+        <dt>Purchased</dt><dd>{{ plan.summary.total_gallons_purchased|floatformat:2 }} gal</dd>
+        <dt>Consumed</dt><dd>{{ plan.summary.gallons_consumed|floatformat:2 }} gal</dd>
+        <dt>Left at finish</dt><dd>{{ plan.summary.fuel_at_finish_gallons|floatformat:2 }} gal</dd>
+        <dt>Stops</dt><dd>{{ plan.summary.stop_count }} of {{ plan.summary.candidate_stations }} candidates</dd>
+      </dl>
+
+      <h2>Stops</h2>
+      <ul class="stops" id="stop-list">
+        {% if plan.pre_trip_purchase %}
+        <li data-idx="pre">
+          <span class="badge pre">0</span>
+          <span><span class="name">Before departure</span><br><span class="sub">{{ plan.pre_trip_purchase.gallons|floatformat:2 }} gal at {{ plan.pre_trip_purchase.station.name }} price (${{ plan.pre_trip_purchase.price_per_gallon|floatformat:3 }})</span></span>
+          <span class="money">${{ plan.pre_trip_purchase.cost|floatformat:2 }}</span>
+        </li>
+        {% endif %}
+        {% for s in plan.fuel_stops %}
+        <li data-idx="{{ forloop.counter0 }}">
+          <span class="badge">{{ s.order }}</span>
+          <span><span class="name">{{ s.station.name }}</span><br><span class="sub">mile {{ s.mile_marker|floatformat:0 }} · {{ s.station.city }}, {{ s.station.state }} · ${{ s.price_per_gallon|floatformat:3 }}/gal · {{ s.gallons|floatformat:1 }} gal</span></span>
+          <span class="money">${{ s.cost|floatformat:2 }}</span>
+        </li>
+        {% empty %}
+        <li><span></span><span class="sub">No stops needed: the trip fits in the initial fuel.</span><span></span></li>
+        {% endfor %}
+      </ul>
+
+      <div class="footer">
+        Route via {{ plan.route.provider }} · {{ plan.external_calls.count }} upstream call{{ plan.external_calls.count|pluralize }} for this request ·
+        stop penalty ${{ plan.assumptions.stop_penalty_usd|floatformat:0 }} · corridor {{ plan.assumptions.corridor_miles|floatformat:0 }} mi ·
+        <a href="{{ api_url }}">JSON</a>
+      </div>
+    {% endif %}
+  </aside>
+  <div id="map"></div>
+</div>
+
+{% if plan %}{{ plan|json_script:"plan-data" }}{% endif %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script>
+(function () {
+  var map = L.map('map', { zoomControl: true });
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+  }).addTo(map);
+
+  var el = document.getElementById('plan-data');
+  if (!el) { map.setView([39.5, -98.35], 4); return; }
+  var plan = JSON.parse(el.textContent);
+
+  function icon(label, cls) {
+    return L.divIcon({ className: '', html: '<div class="stop-icon ' + (cls || '') + '">' + label + '</div>', iconSize: [26, 26], iconAnchor: [13, 13], popupAnchor: [0, -12] });
+  }
+  function money(x) { return '$' + Number(x).toFixed(2); }
+
+  var layers = [];
+  if (plan.route.geometry) {
+    var line = L.geoJSON(plan.route.geometry, { style: { color: '#0f766e', weight: 4, opacity: 0.85 } }).addTo(map);
+    layers.push(line);
+  }
+  var start = L.marker([plan.start.lat, plan.start.lng], { icon: icon('A', 'start') }).addTo(map)
+    .bindPopup('<b>Start</b>' + plan.start.name);
+  var finish = L.marker([plan.finish.lat, plan.finish.lng], { icon: icon('B', 'end') }).addTo(map)
+    .bindPopup('<b>Finish</b>' + plan.finish.name + '<br>' + plan.route.distance_miles + ' mi');
+  layers.push(start, finish);
+
+  var markers = plan.fuel_stops.map(function (s) {
+    var st = s.station;
+    var m = L.marker([st.lat, st.lng], { icon: icon(String(s.order)) }).addTo(map).bindPopup(
+      '<b>' + s.order + '. ' + st.name + '</b>' + st.address + ', ' + st.city + ', ' + st.state +
+      '<br>Mile ' + s.mile_marker.toFixed(0) + ' · ' + s.detour_miles.toFixed(1) + ' mi off route' +
+      '<br>' + money(s.price_per_gallon) + '/gal · buy ' + s.gallons.toFixed(1) + ' gal = <b>' + money(s.cost) + '</b>' +
+      'Arrive ' + s.fuel_on_arrival_gallons.toFixed(1) + ' gal · depart ' + s.fuel_on_departure_gallons.toFixed(1) + ' gal');
+    layers.push(m);
+    return m;
+  });
+
+  map.fitBounds(L.featureGroup(layers).getBounds().pad(0.08));
+
+  document.querySelectorAll('#stop-list li[data-idx]').forEach(function (li) {
+    li.addEventListener('click', function () {
+      var i = li.getAttribute('data-idx');
+      var m = i === 'pre' ? markers[0] : markers[Number(i)];
+      if (m) { map.panTo(m.getLatLng()); m.openPopup(); }
+    });
+  });
+})();
+</script>
+</body>
+</html>

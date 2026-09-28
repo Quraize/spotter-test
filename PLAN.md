@@ -102,7 +102,7 @@ spotter-fuel-router/
 │       ├── warmup.py         # pre-load catalog/city table/boundary/providers from wsgi.py
 │       ├── urls.py
 │       ├── exceptions.py     # domain/provider errors -> 400/422/502/503/504 with detail
-│       └── templates/api/map.html   # Leaflet page fed by the plan JSON
+│       └── templates/api/map.html   # Leaflet page, server-rendered from the same cached plan
 └── tests/
     ├── test_optimizer.py     # unit cases + 400 random instances vs exact DP oracle
     ├── test_corridor.py
@@ -110,7 +110,11 @@ spotter-fuel-router/
     ├── test_resolver.py
     ├── test_import.py
     ├── test_routing.py       # respx-mocked providers, retry, fallback, cache, factories
-    └── test_api.py           # providers mocked, full request cycle
+    ├── test_resolver.py
+    ├── test_api.py           # providers mocked, full request cycle
+    ├── test_map.py           # HTML page, escaping, error statuses, zero extra upstream calls
+    ├── fakes.py              # shared stub resolver/router/catalog + synthetic route
+    └── conftest.py
 ```
 
 ## API contract
@@ -191,8 +195,8 @@ Errors: 400 for invalid input, 422 if a location cannot be resolved or lies outs
 - [x] End-to-end tests with mocked providers
 
 ### Phase 6 — Map page (~45 min)
-- [ ] `map.html` with Leaflet: route line, numbered stop markers, price/gallons popups, summary box
-- [ ] `/api/v1/route-plan/map/` view reusing the same plan (served from cache)
+- [x] `map.html` with Leaflet: route line, numbered stop markers, price/gallons popups, summary box
+- [x] `/api/v1/route-plan/map/` view reusing the same plan (served from cache)
 
 ### Phase 7 — Hardening (~1.5 h)
 - [ ] Dockerfile + compose, gunicorn, logging config

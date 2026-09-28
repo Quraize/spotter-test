@@ -8,105 +8,15 @@ real corridor search, optimiser, serializers and error mapping all run.
 
 from __future__ import annotations
 
-import numpy as np
 import pytest
-from django.core.cache import cache
 from django.urls import reverse
 from rest_framework.test import APIClient
 
 from apps.api import services
-from apps.planner.geo import MILES_PER_DEG_LAT
-from apps.routing.base import Place, ProviderError, ProviderTimeout, Route
+from apps.routing.base import ProviderError, ProviderTimeout
 from apps.routing.http import ProviderClientError
-from apps.routing.resolver import LocationNotFound
-from apps.stations.index import StationCatalog, StationDataMissing, StationInfo
-
-LAT = 40.0
-MILES_PER_DEG_LNG = MILES_PER_DEG_LAT * np.cos(np.radians(LAT))
-START = Place("Start, IL, USA", LAT, -90.0, "local")
-FINISH = Place("Finish, OH, USA", LAT, -80.0, "local")
-
-
-def synthetic_route() -> Route:
-    lngs = np.linspace(-90.0, -80.0, 201)
-    coords = [(float(x), LAT) for x in lngs]
-    return Route(
-        distance_miles=float(10 * MILES_PER_DEG_LNG),
-        duration_minutes=600.0,
-        coordinates=coords,
-        provider="stub",
-    )
-
-
-def station(opis_id: int, lng: float, price: float, lat: float = LAT) -> StationInfo:
-    return StationInfo(
-        opis_id=opis_id,
-        name=f"STATION {opis_id}",
-        address=f"I-70, EXIT {opis_id}",
-        city=f"Town{opis_id}",
-        state="OH",
-        price=price,
-        lat=lat,
-        lng=lng,
-    )
-
-
-class StubResolver:
-    def __init__(self) -> None:
-        self.places = {"Start, IL": START, "Finish, OH": FINISH}
-        self.fail: Exception | None = None
-
-    def resolve(self, raw: str) -> Place:
-        if self.fail:
-            raise self.fail
-        try:
-            return self.places[raw]
-        except KeyError:
-            raise LocationNotFound(raw, "no match in stub") from None
-
-
-class StubRouter:
-    name = "stub"
-
-    def __init__(self, route: Route) -> None:
-        self.route_result = route
-        self.fail: Exception | None = None
-        self.calls = 0
-
-    def route(self, start: Place, finish: Place) -> Route:
-        self.calls += 1
-        if self.fail:
-            raise self.fail
-        return self.route_result
-
-
-@pytest.fixture
-def stubs(monkeypatch: pytest.MonkeyPatch):
-    resolver = StubResolver()
-    router = StubRouter(synthetic_route())
-    # Stations at ~0, ~132, ~265, ~397 and ~530 miles; one 20 miles off-route; one far away.
-    catalog = StationCatalog(
-        [
-            station(1, -89.98, 3.50),
-            station(2, -87.5, 3.00),
-            station(3, -85.0, 3.40),
-            station(4, -82.5, 2.80),
-            station(5, -80.02, 3.90),
-            station(6, -85.0, 1.00, lat=LAT + 20 / MILES_PER_DEG_LAT),  # outside corridor
-            station(7, -100.0, 1.00),  # nowhere near
-        ]
-    )
-    monkeypatch.setattr(services, "get_resolver", lambda: resolver)
-    monkeypatch.setattr(services, "get_route_provider", lambda: router)
-    monkeypatch.setattr(services, "get_station_catalog", lambda: catalog)
-    cache.clear()
-    return resolver, router, catalog
-
-
-@pytest.fixture
-def client() -> APIClient:
-    return APIClient()
-
+from apps.stations.index import StationCatalog, StationDataMissing
+from tests.fakes import MILES_PER_DEG_LNG, station
 
 URL = reverse("api:route-plan")
 
