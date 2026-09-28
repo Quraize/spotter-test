@@ -66,16 +66,20 @@ spotter-fuel-router/
 ├── data/
 │   ├── fuel-prices-for-be-assessment.csv   # original, untouched
 │   ├── us_cities.csv                       # local geocoding table
-│   └── stations_geocoded.csv               # committed output of the geocode command
+│   └── geocoded_places.csv                 # committed output of the geocode command
 ├── apps/
 │   ├── stations/             # reference data
 │   │   ├── models.py         # Station: opis_id, name, address, city, state, price, lat, lng
+│   │   ├── loader.py         # CSV parsing + cleaning rules (pure functions)
+│   │   ├── places.py         # geocoded_places.csv read/write
 │   │   ├── index.py          # StationIndex: numpy arrays loaded once, bbox prefilter
 │   │   └── management/commands/
 │   │       ├── import_stations.py   # CSV -> DB: dedupe by ID, drop non-US, keep cheapest
 │   │       └── geocode_stations.py  # city/state -> local table -> Nominatim fallback, resumable
 │   ├── routing/              # all external I/O lives here
 │   │   ├── base.py           # RouteProvider / GeocodeProvider protocols, Route + Place dataclasses
+│   │   ├── http.py           # shared httpx client factory, timeouts, retry, error translation
+│   │   ├── local_cities.py   # offline City, ST -> lat/lng index (us_cities.csv)
 │   │   ├── ors.py            # OpenRouteService directions + geocode
 │   │   ├── osrm.py           # fallback routing
 │   │   ├── nominatim.py      # fallback geocoding
@@ -140,13 +144,13 @@ Errors: 400 for invalid input, 422 if a location cannot be resolved or lies outs
 - [x] First commit
 
 ### Phase 1 — Station data pipeline (~2 h, then geocode runs in background)
-- [ ] `Station` model + migration
-- [ ] `import_stations`: parse CSV, drop non-US, dedupe by OPIS ID keeping cheapest, bulk insert
-- [ ] Download `us_cities.csv` (free, attributed) into `data/`
-- [ ] `geocode_stations`: local city/state join → Nominatim fallback (1 req/s, proper User-Agent),
-      resumable, writes `data/stations_geocoded.csv`
-- [ ] Start the geocode run early; commit output when done
-- [ ] Tests: import dedupe/filter logic
+- [x] `Station` model + migration
+- [x] `import_stations`: parse CSV, drop non-US, dedupe by OPIS ID keeping cheapest, bulk insert
+- [x] Download `us_cities.csv` (free, attributed) into `data/`
+- [x] `geocode_stations`: local city/state join → Nominatim fallback (1 req/s, proper User-Agent),
+      resumable, writes `data/geocoded_places.csv`
+- [x] Geocode run done: 3,802 local + 6 Nominatim = 3,808/3,808 places; 6,626 stations, all with coordinates
+- [x] Tests: import dedupe/filter logic
 
 ### Phase 2 — Planner domain, test first (~2 h)
 - [ ] `types.py` dataclasses
