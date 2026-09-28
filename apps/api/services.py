@@ -17,6 +17,7 @@ from django.conf import settings
 
 from apps.planner.corridor import RouteGeometry, find_candidates
 from apps.planner.exceptions import NoStationsOnRoute
+from apps.planner.geo import haversine_miles
 from apps.planner.optimizer import plan_fuel_stops
 from apps.planner.types import FuelPlan, FuelStop, Vehicle
 from apps.routing.base import Place, Route
@@ -78,7 +79,11 @@ def plan_route(req: PlanRequest) -> PlanResult:
             finish = ResolvedPlace(req.finish, resolver.resolve(req.finish))
 
         with _timed(timings, "route"):
-            route = router.route(start.place, finish.place)
+            if _same_place(start.place, finish.place):
+                # Nothing to drive: skip the routing provider entirely.
+                route = Route(0.0, 0.0, [start.place.lnglat, finish.place.lnglat], "none")
+            else:
+                route = router.route(start.place, finish.place)
 
         with _timed(timings, "corridor"):
             geometry = RouteGeometry(route.coordinates, total_miles=route.distance_miles)
@@ -119,6 +124,13 @@ def plan_route(req: PlanRequest) -> PlanResult:
         external_calls=list(calls),
         timings_ms=timings,
     )
+
+
+SAME_PLACE_MILES = 0.05
+
+
+def _same_place(a: Place, b: Place) -> bool:
+    return float(haversine_miles(a.lat, a.lng, b.lat, b.lng)) < SAME_PLACE_MILES
 
 
 class _timed:

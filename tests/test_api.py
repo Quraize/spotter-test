@@ -136,6 +136,20 @@ def test_zero_penalty_and_corridor_override(client: APIClient, stubs) -> None:
     assert 6 in ids  # the $1.00 station 20 miles off-route is now worth the detour
 
 
+def test_same_start_and_finish_costs_no_upstream_call(client: APIClient, stubs) -> None:
+    _, router, _ = stubs
+
+    response = client.get(URL, {"start": "Start, IL", "finish": "Start, IL"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert router.calls == 0
+    assert body["route"]["distance_miles"] == 0.0
+    assert body["route"]["provider"] == "none"
+    assert body["fuel_stops"] == []
+    assert body["summary"]["total_fuel_cost"] == 0.0
+
+
 def test_include_geometry_false_omits_linestring(client: APIClient, stubs) -> None:
     response = client.get(
         URL, {"start": "Start, IL", "finish": "Finish, OH", "include_geometry": "false"}
