@@ -199,10 +199,10 @@ Errors: 400 for invalid input, 422 if a location cannot be resolved or lies outs
 - [x] `/api/v1/route-plan/map/` view reusing the same plan (served from cache)
 
 ### Phase 7 — Hardening (~1.5 h)
-- [ ] Dockerfile + compose, gunicorn, logging config
-- [ ] README: setup, assumptions, algorithm, call budget, provider limits, attribution
-- [ ] Postman collection committed under `postman/`
-- [ ] Full test run, ruff clean, final review pass
+- [x] Dockerfile + compose, gunicorn, logging config; deployed on the VPS at http://2.25.193.125:8081 (dir ~/spotter-test)
+- [x] README: setup, assumptions, algorithm, call budget, provider limits, attribution
+- [x] Postman collection committed under `postman/`
+- [x] Full test run, ruff clean, final review pass
 
 ### Phase 8 — Loom prep (~30 min)
 - [ ] Two or three prepared requests (short trip, cross-country, free-text address)
