@@ -151,7 +151,7 @@
     var m = L.marker([st.lat, st.lng], { icon: icon(String(s.order)) }).addTo(map).bindPopup(
       '<b>' + s.order + '. ' + st.name + '</b>' + st.address + ', ' + st.city + ', ' + st.state +
       '<br>Mile ' + s.mile_marker.toFixed(0) + ' · ' + s.detour_miles.toFixed(1) + ' mi off route' +
-      '<br>' + money(s.price_per_gallon) + '/gal · buy ' + s.gallons.toFixed(1) + ' gal = <b>' + money(s.cost) + '</b>' +
+      '<br>$' + s.price_per_gallon.toFixed(3) + '/gal · buy ' + s.gallons.toFixed(1) + ' gal = <b>' + money(s.cost) + '</b>' +
       'Arrive ' + s.fuel_on_arrival_gallons.toFixed(1) + ' gal · depart ' + s.fuel_on_departure_gallons.toFixed(1) + ' gal');
     layers.push(m);
     return m;
