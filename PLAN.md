@@ -205,7 +205,7 @@ Errors: 400 for invalid input, 422 if a location cannot be resolved or lies outs
 - [x] Full test run, ruff clean, final review pass
 
 ### Phase 8 — Loom prep (~30 min)
-- [ ] Two or three prepared requests (short trip, cross-country, free-text address)
-- [ ] Script: demo → algorithm → call budget → code tour, under 5 minutes
+- [x] Two or three prepared requests (short trip, cross-country, free-text address)
+- [x] Script: demo → algorithm → call budget → code tour, under 5 minutes
 
 **Estimated total:** ~12 h focused work. Day 1 build, day 2 polish + recording.
