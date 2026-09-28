@@ -90,7 +90,7 @@ spotter-fuel-router/
 │   │   ├── exceptions.py     # PlanningError, NoStationsOnRoute, StationGapTooLarge
 │   │   ├── geo.py            # haversine + spherical Mercator (conformal) for indexing
 │   │   ├── corridor.py       # RouteGeometry, StationIndex (STRtree), find_candidates
-│   │   └── optimizer.py      # greedy fill-up algorithm, exact-DP verified
+│   │   └── optimizer.py      # stop-penalty DP (production) + greedy (reference), oracle-verified
 │   └── api/
 │       ├── serializers.py    # request validation, response shape
 │       ├── views.py          # RoutePlanView: resolver -> route -> corridor -> optimizer
@@ -158,7 +158,7 @@ Errors: 400 for invalid input, 422 if a location cannot be resolved or lies outs
 
 ### Phase 2 — Planner domain, test first (~2 h)
 - [x] `types.py` dataclasses
-- [x] `optimizer.py` greedy fill-up
+- [x] `optimizer.py` greedy fill-up (reference) + stop-penalty DP (production)
 - [x] Tests: no stops needed, single stop, cheaper station ahead within range, no cheaper ahead,
       unreachable gap (> 500 mi between stations → explicit error), initial fuel variants,
       finish reached with minimal leftover fuel
