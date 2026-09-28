@@ -127,6 +127,14 @@ def test_city_with_state_beats_ambiguity(resolver, geocoder) -> None:
     assert geocoder.queries == []
 
 
+def test_bare_state_name_goes_to_geocoder_not_a_same_named_town(resolver, geocoder, cities) -> None:
+    # The table has a village called "Texas" in some state; a bare state must not match it.
+    resolver.resolve("Texas")
+    resolver.resolve("tx")
+
+    assert geocoder.queries == ["Texas", "tx"]
+
+
 def test_unknown_city_state_pair_falls_back_to_geocoder(resolver, geocoder) -> None:
     resolver.resolve("Brook Park, OH")
 
@@ -213,7 +221,10 @@ def test_overlong_input_rejected(resolver) -> None:
         (25.79, -80.13, True),  # Miami Beach, barrier island
         (38.3365, -75.0849, True),  # Ocean City MD, barrier island
         (42.3314, -83.0458, True),  # Detroit
-        (42.3149, -83.0364, False),  # Windsor ON, across the river from Detroit
+        (40.6892, -74.0445, True),  # Statue of Liberty, in the harbour
+        (37.8267, -122.4230, True),  # Alcatraz
+        (33.3428, -118.3282, True),  # Avalon, Catalina Island
+        (42.3149, -83.0364, True),  # Windsor ON: 1 km across the river, admitted by design
         (31.6904, -106.4245, False),  # Ciudad Juarez, across the river from El Paso
         (32.5149, -117.0382, False),  # Tijuana
         (49.28, -123.12, False),  # Vancouver BC

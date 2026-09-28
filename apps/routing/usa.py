@@ -2,9 +2,11 @@
 "Is this point in the USA?" against the real national boundary.
 
 Backed by data/usa_boundary.geojson (Natural Earth 1:10m admin-0, public domain), buffered by
-~1 km so that cities on a river border or a barrier island (El Paso, Port Huron, Miami Beach)
-are never rejected. A bounding-box check runs first so the polygon test only pays for points
-that are plausibly in North America.
+~2 km so that river-border cities, barrier islands and harbour landmarks (El Paso, Port Huron,
+Miami Beach, the Statue of Liberty, Alcatraz) are never rejected. The price is that a town
+directly across a narrow river (Windsor ON) is admitted too, which is harmless: rejecting a
+real US place is a broken product, admitting a border town just yields a valid route. A
+bounding-box check runs first so the polygon test only pays for plausible points.
 """
 
 from __future__ import annotations
@@ -17,7 +19,7 @@ from django.conf import settings
 from shapely.geometry import Point, shape
 from shapely.prepared import PreparedGeometry, prep
 
-TOLERANCE_DEGREES = 0.01  # ~1.1 km
+TOLERANCE_DEGREES = 0.02  # ~2.2 km
 
 # (min_lat, max_lat, min_lng, max_lng): contiguous US, Alaska both sides of the antimeridian,
 # Hawaii. Cheap rejection of obviously foreign points before the polygon test.

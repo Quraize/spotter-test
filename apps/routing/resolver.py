@@ -78,6 +78,9 @@ class LocationResolver:
         if len(parts) != 1:
             return None
 
+        if self.cities.state_code(parts[0]):
+            return None  # a bare state ("Ohio", "TX"): let the geocoder place it, not a
+            # same-named village in the city table
         words = parts[0].split()
         if len(words) >= 2 and self.cities.state_code(words[-1]):
             hit = self.cities.lookup(" ".join(words[:-1]), words[-1])

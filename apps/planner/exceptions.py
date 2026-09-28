@@ -18,7 +18,15 @@ class StationGapTooLarge(PlanningError):
         self.from_mile = from_mile
         self.to_mile = to_mile
         self.range_miles = range_miles
-        super().__init__(
-            f"Gap of {to_mile - from_mile:.0f} miles between mile {from_mile:.0f} and mile "
-            f"{to_mile:.0f} exceeds the vehicle range of {range_miles:g} miles."
-        )
+        if from_mile == 0:
+            msg = (
+                f"The first usable fuel station is {to_mile:.0f} miles into the route, beyond "
+                f"the vehicle range of {range_miles:g} miles."
+            )
+        else:
+            msg = (
+                f"Gap of {to_mile - from_mile:.0f} miles between usable stations at mile "
+                f"{from_mile:.0f} and mile {to_mile:.0f} exceeds the vehicle range of "
+                f"{range_miles:g} miles."
+            )
+        super().__init__(msg)
