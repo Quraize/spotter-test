@@ -214,7 +214,7 @@ def test_no_stations_in_corridor_is_422(client: APIClient, stubs, monkeypatch) -
     response = client.get(URL, {"start": "Start, IL", "finish": "Finish, OH"})
 
     assert response.status_code == 422
-    assert "No fuel stations found within 10 miles" in response.json()["detail"]
+    assert "no fuel station within 10 miles" in response.json()["detail"]
 
 
 def test_provider_timeout_is_504(client: APIClient, stubs) -> None:

@@ -2,7 +2,10 @@
 One-time, offline geocoding of every (city, state) pair in the fuel CSV.
 
 Resolution order:
-  1. data/us_cities.csv (local, instant)     -> source=local
+  1. data/us_cities.csv (local, instant)     -> source=geonames | kelvins
+     If its two sources disagree on where a place is (duplicate town names in a state),
+     Nominatim breaks the tie: the local candidate nearest Nominatim's answer wins, or
+     Nominatim's own answer if neither is close.
   2. Nominatim, 1 request/second             -> source=nominatim
 
 Output: data/geocoded_places.csv, committed to the repo. The command is resumable:
@@ -18,13 +21,15 @@ from pathlib import Path
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandParser
 
+from apps.planner.geo import haversine_miles
 from apps.routing.base import ProviderError
-from apps.routing.local_cities import get_city_index
+from apps.routing.local_cities import CityRecord, get_city_index
 from apps.routing.nominatim import NominatimGeocoder
 from apps.stations.loader import load_clean
 from apps.stations.places import GeocodedPlace, place_key, read_places, write_places
 
 NOMINATIM_MIN_INTERVAL_SECONDS = 1.1
+AGREE_MILES = 5.0
 
 
 class Command(BaseCommand):
@@ -48,6 +53,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options) -> None:
         csv_path: Path = options["csv"]
         output: Path = options["output"]
+        remote = not options["no_remote"]
 
         pairs = {place_key(r.city, r.state): (r.city, r.state) for r in load_clean(csv_path)}
         places = {} if options["refresh"] else read_places(output)
@@ -56,23 +62,33 @@ class Command(BaseCommand):
 
         index = get_city_index()
         local_hits = 0
+        disputed: dict[tuple[str, str], tuple[str, str, CityRecord]] = {}
         for key, (city, state) in list(pending.items()):
             record = index.lookup(city, state)
-            if record is not None:
-                places[key] = GeocodedPlace(
-                    city=city,
-                    state=state,
-                    latitude=record.lat,
-                    longitude=record.lng,
-                    source="local",
-                    display_name=f"{record.city}, {record.state}, USA",
-                )
-                del pending[key]
-                local_hits += 1
-        self.stdout.write(f"local table resolved {local_hits}; {len(pending)} remain")
+            if record is None:
+                continue
+            del pending[key]
+            if record.is_uncertain and remote:
+                disputed[key] = (city, state, record)
+                continue
+            places[key] = GeocodedPlace(
+                city=city,
+                state=state,
+                latitude=record.lat,
+                longitude=record.lng,
+                source=record.source,
+                display_name=f"{record.city}, {record.state}, USA",
+            )
+            local_hits += 1
+        self.stdout.write(
+            f"local table resolved {local_hits}; {len(disputed)} disputed between sources; "
+            f"{len(pending)} unknown"
+        )
         write_places(output, places)
 
-        if pending and not options["no_remote"]:
+        if remote and disputed:
+            self._settle_disputes(disputed, places, output)
+        if remote and pending:
             self._geocode_remote(pending, places, output)
 
         unresolved = [f"{c}, {s}" for (c, s) in pending.values() if place_key(c, s) not in places]
@@ -80,6 +96,48 @@ class Command(BaseCommand):
             self.style.SUCCESS(f"wrote {len(places)} places to {output}")
             + (f"; unresolved: {unresolved}" if unresolved else "")
         )
+
+    def _settle_disputes(self, disputed: dict, places: dict, output: Path) -> None:
+        """Ask Nominatim which of two local candidates is the real place."""
+        geocoder = NominatimGeocoder()
+        try:
+            for n, (key, (city, state, rec)) in enumerate(disputed.items(), start=1):
+                started = time.monotonic()
+                try:
+                    hit = geocoder.geocode_city(city, state)
+                except ProviderError as exc:
+                    self.stderr.write(f"  [{n}/{len(disputed)}] {city}, {state}: {exc}")
+                    hit = None
+                candidates = [(rec.lat, rec.lng, rec.source)]
+                if rec.alt:
+                    candidates.append((rec.alt[0], rec.alt[1], "kelvins"))
+                if hit is None:
+                    lat, lng, source = candidates[0]
+                    verdict = "no answer, kept primary"
+                else:
+                    dists = [
+                        float(haversine_miles(hit.lat, hit.lng, c[0], c[1])) for c in candidates
+                    ]
+                    best = min(range(len(candidates)), key=dists.__getitem__)
+                    if dists[best] <= AGREE_MILES:
+                        lat, lng, source = candidates[best]
+                        verdict = f"agrees with {source} ({dists[best]:.1f} mi)"
+                    else:
+                        lat, lng, source = hit.lat, hit.lng, "nominatim"
+                        verdict = "neither local candidate within 5 mi; used nominatim"
+                places[key] = GeocodedPlace(
+                    city=city,
+                    state=state,
+                    latitude=lat,
+                    longitude=lng,
+                    source=source,
+                    display_name=hit.name if hit else f"{rec.city}, {rec.state}, USA",
+                )
+                self.stdout.write(f"  [{n}/{len(disputed)}] {city}, {state}: {verdict}")
+                write_places(output, places)
+                self._pace(started)
+        finally:
+            geocoder.close()
 
     def _geocode_remote(self, pending: dict, places: dict, output: Path) -> None:
         geocoder = NominatimGeocoder()
@@ -109,8 +167,12 @@ class Command(BaseCommand):
                         f"  [{n}/{len(pending)}] {city}, {state} -> {hit.lat:.4f},{hit.lng:.4f}"
                     )
                     write_places(output, places)  # checkpoint after every success
-                elapsed = time.monotonic() - started
-                if elapsed < NOMINATIM_MIN_INTERVAL_SECONDS:
-                    time.sleep(NOMINATIM_MIN_INTERVAL_SECONDS - elapsed)
+                self._pace(started)
         finally:
             geocoder.close()
+
+    @staticmethod
+    def _pace(started: float) -> None:
+        elapsed = time.monotonic() - started
+        if elapsed < NOMINATIM_MIN_INTERVAL_SECONDS:
+            time.sleep(NOMINATIM_MIN_INTERVAL_SECONDS - elapsed)

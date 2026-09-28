@@ -276,3 +276,26 @@ def test_resolver_factory_uses_real_city_table_and_provider_chain(settings) -> N
     assert resolver.resolve("Dallas, TX").source == "local"
     assert resolver.geocoder.name == "nominatim"
     assert get_resolver() is resolver
+
+
+@pytest.mark.parametrize(
+    ("alias", "expected"),
+    [
+        ("Philly", "Philadelphia, PA"),
+        ("NYC", "New York, NY"),
+        ("LA", "Los Angeles, CA"),
+        ("D.C.", "Washington, DC"),
+    ],
+)
+def test_nicknames_map_to_cities(cities, geocoder, alias, expected) -> None:
+    # The fixture table lacks these cities, so a successful alias shows up as the expanded
+    # name reaching the geocoder instead of the raw nickname.
+    LocationResolver(cities, geocoder).resolve(alias)
+
+    assert geocoder.queries[-1] == expected
+
+
+def test_trailing_punctuation_is_ignored(resolver, geocoder) -> None:
+    assert resolver.resolve("Chicago, IL.").name == "Chicago, IL, USA"
+    assert resolver.resolve("Dallas, TX;").name.startswith("Dallas")
+    assert geocoder.queries == []

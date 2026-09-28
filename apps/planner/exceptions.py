@@ -10,7 +10,10 @@ class NoStationsOnRoute(PlanningError):
         self.trip_miles = trip_miles
         self.corridor_miles = corridor_miles
         where = f" within {corridor_miles:g} miles of the route" if corridor_miles else ""
-        super().__init__(f"No fuel stations found{where} on a {trip_miles:.0f} mile trip.")
+        super().__init__(
+            f"The price list has no fuel station{where} on this {trip_miles:.0f} mile trip, "
+            "so no fuel plan can be made. Coverage is thin in some states (e.g. California)."
+        )
 
 
 class StationGapTooLarge(PlanningError):
@@ -20,13 +23,14 @@ class StationGapTooLarge(PlanningError):
         self.range_miles = range_miles
         if from_mile == 0:
             msg = (
-                f"The first usable fuel station is {to_mile:.0f} miles into the route, beyond "
-                f"the vehicle range of {range_miles:g} miles."
+                f"The first station from the price list along this route is {to_mile:.0f} miles "
+                f"in, beyond the vehicle range of {range_miles:g} miles. The list has little or "
+                "no coverage on this stretch (e.g. California)."
             )
         else:
             msg = (
-                f"Gap of {to_mile - from_mile:.0f} miles between usable stations at mile "
-                f"{from_mile:.0f} and mile {to_mile:.0f} exceeds the vehicle range of "
-                f"{range_miles:g} miles."
+                f"The price list has no station along the route between mile {from_mile:.0f} "
+                f"and mile {to_mile:.0f}, a gap of {to_mile - from_mile:.0f} miles that exceeds "
+                f"the vehicle range of {range_miles:g} miles."
             )
         super().__init__(msg)

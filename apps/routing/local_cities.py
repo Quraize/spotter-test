@@ -1,6 +1,8 @@
 """
-Offline "City, ST" -> coordinates lookup backed by data/us_cities.csv
-(MIT licensed, from kelvins/US-Cities-Database).
+Offline "City, ST" -> coordinates lookup backed by data/us_cities.csv, built by
+`manage.py build_city_table` from GeoNames (CC BY 4.0) and kelvins/US-Cities-Database (MIT).
+Rows carry the alternative source's coordinates and how far apart the sources are, so callers
+can treat a disputed place (duplicate town names within a state) as uncertain.
 
 Used for two things:
   * the one-time station geocoding (resolves ~99.8% of the fuel CSV without a network call)
@@ -24,6 +26,8 @@ US_STATES: frozenset[str] = frozenset(
     "NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY".split()
 )
 
+UNCERTAIN_MILES = 5.0
+
 
 def normalize_city(city: str) -> str:
     return " ".join(city.strip().lower().split())
@@ -35,6 +39,13 @@ class CityRecord:
     state: str
     lat: float
     lng: float
+    source: str = "local"
+    alt: tuple[float, float] | None = None  # the other source's (lat, lng), if any
+    disagreement_miles: float | None = None
+
+    @property
+    def is_uncertain(self) -> bool:
+        return self.disagreement_miles is not None and self.disagreement_miles > UNCERTAIN_MILES
 
     def as_place(self) -> Place:
         return Place(
@@ -55,11 +66,16 @@ class LocalCityIndex:
                 if state not in US_STATES:
                     continue
                 self._state_by_name.setdefault(normalize_city(row["STATE_NAME"]), state)
+                alt_lat, alt_lng = row.get("ALT_LATITUDE", ""), row.get("ALT_LONGITUDE", "")
+                disagreement = row.get("DISAGREEMENT_MILES", "")
                 record = CityRecord(
                     city=row["CITY"].strip(),
                     state=state,
                     lat=float(row["LATITUDE"]),
                     lng=float(row["LONGITUDE"]),
+                    source=row.get("SOURCE", "") or "local",
+                    alt=(float(alt_lat), float(alt_lng)) if alt_lat and alt_lng else None,
+                    disagreement_miles=float(disagreement) if disagreement else None,
                 )
                 key = (normalize_city(record.city), state)
                 # First occurrence wins; duplicates in the source are the same place repeated.

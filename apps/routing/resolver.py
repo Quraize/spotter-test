@@ -24,6 +24,26 @@ from apps.routing.local_cities import LocalCityIndex
 from apps.routing.usa import is_in_usa
 
 _COORDS = re.compile(r"^\s*([-+]?\d{1,3}(?:\.\d+)?)\s*,\s*([-+]?\d{1,3}(?:\.\d+)?)\s*$")
+# Common nicknames. Without these a geocoder returns whatever venue matches the token best
+# ("Philly" -> a restaurant in San Francisco).
+_ALIASES = {
+    "nyc": "New York, NY",
+    "new york city": "New York, NY",
+    "la": "Los Angeles, CA",
+    "l.a.": "Los Angeles, CA",
+    "sf": "San Francisco, CA",
+    "philly": "Philadelphia, PA",
+    "dc": "Washington, DC",
+    "d.c.": "Washington, DC",
+    "washington d.c.": "Washington, DC",
+    "washington, d.c.": "Washington, DC",
+    "vegas": "Las Vegas, NV",
+    "nola": "New Orleans, LA",
+    "atl": "Atlanta, GA",
+    "chi-town": "Chicago, IL",
+    "the big apple": "New York, NY",
+    "motor city": "Detroit, MI",
+}
 _COUNTRY_SUFFIXES = ("usa", "us", "u.s.", "u.s.a.", "united states", "united states of america")
 MAX_QUERY_LENGTH = 200
 
@@ -52,11 +72,15 @@ class LocationResolver:
         if (place := self._from_coordinates(query)) is not None:
             return self._checked(query, place)
 
-        stripped = self._strip_country(query)
+        base = self._strip_country(query)
+        alias = _ALIASES.get(base.lower()) or _ALIASES.get(base.rstrip(".;,!").lower())
+        stripped = alias or base.rstrip(".;,!")
         if (place := self._from_local(stripped)) is not None:
             return place
 
-        return self._checked(query, self._from_geocoder(query))
+        # A recognised nickname is sent to the geocoder expanded; anything else goes verbatim
+        # (street addresses and landmarks geocode best untouched).
+        return self._checked(query, self._from_geocoder(alias or query))
 
     # -- rungs ---------------------------------------------------------------------------
 

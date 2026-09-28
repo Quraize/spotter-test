@@ -158,9 +158,13 @@ input ──► resolver ──► routing provider ──► corridor search �
   realistic plans at 1–6 % over the theoretical minimum. The reported total is fuel only.
 - **Station positions are city centroids.** The price file has no coordinates and its
   addresses are interstate exits ("I-44, EXIT 283"), so stations were geocoded once, offline,
-  by city + state (3,802 from the bundled table, 6 via Nominatim) and the result committed.
-  The 10 mile corridor absorbs the error. Canadian rows were dropped; duplicate station IDs
-  keep the cheapest price.
+  by city + state against a merged GeoNames/kelvins table, with Nominatim settling the ~100
+  places where those two sources disagreed, and the result committed. The 10 mile corridor
+  absorbs the remaining error. Canadian rows were dropped; duplicate station IDs keep the
+  cheapest price.
+- **The price list is uneven.** California has 8 stations (all in the Imperial Valley),
+  Alaska and Hawaii none. Routes through those areas can be infeasible within a 500 mile
+  range; the API returns 422 with an explanation. See `data/README.md` for counts.
 - **Detours are reported, not charged.** Stations are within 10 miles of the route by
   construction; the few extra miles are shown per stop but not added to the fuel maths.
 - Prices are the file's retail diesel prices, treated as current.
@@ -208,6 +212,7 @@ day; OSRM demo server is non-commercial and ~1 request/s; Nominatim 1 request/s.
 
 ## Data and attribution
 
-See [`data/README.md`](data/README.md). US cities table: MIT (kelvins/US-Cities-Database).
-US boundary: Natural Earth, public domain. Map tiles: Esri, with attribution shown on the map.
-Routing and geocoding: © OpenRouteService / OpenStreetMap contributors.
+See [`data/README.md`](data/README.md). US cities table: GeoNames (CC BY 4.0) merged with
+kelvins/US-Cities-Database (MIT). US boundary: Natural Earth, public domain. Map tiles: Esri,
+with attribution shown on the map. Routing and geocoding: © OpenRouteService / OpenStreetMap
+contributors (ODbL).
