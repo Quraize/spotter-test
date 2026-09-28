@@ -1,0 +1,38 @@
+[project]
+name = "spotter-fuel-router"
+version = "0.1.0"
+description = "Route planning API that finds cost-optimal fuel stops along a US road trip."
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "django>=6.1,<6.2",
+    "djangorestframework>=3.16",
+    "drf-spectacular>=0.28",
+    "django-environ>=0.12",
+    "httpx>=0.28",
+    "shapely>=2.1",
+    "numpy>=2.3",
+    "gunicorn>=23.0",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.13",
+    "pytest>=8.4",
+    "pytest-django>=4.11",
+    "respx>=0.22",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+exclude = ["**/migrations/**"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "DJ", "SIM", "C4"]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings"
+python_files = ["test_*.py"]
+testpaths = ["tests"]
+addopts = "-q --reuse-db"
