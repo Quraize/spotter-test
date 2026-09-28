@@ -115,9 +115,14 @@
 <script>
 (function () {
   var map = L.map('map', { zoomControl: true });
-  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  // CARTO basemaps: free for light use with attribution, and unlike the OSM public tile
+  // server they do not block requests that carry no Referer (Django sends
+  // Referrer-Policy: same-origin by default).
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    subdomains: 'abcd',
     maxZoom: 19,
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    referrerPolicy: 'strict-origin-when-cross-origin',
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
   }).addTo(map);
 
   var el = document.getElementById('plan-data');

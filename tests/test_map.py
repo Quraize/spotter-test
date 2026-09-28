@@ -22,6 +22,7 @@ def test_empty_map_page_renders_form_only(client: APIClient) -> None:
     assert 'name="start"' in html
     assert '<script id="plan-data"' not in html
     assert "leaflet@1.9.4" in html
+    assert "basemaps.cartocdn.com" in html
 
 
 def test_map_page_embeds_plan_and_stops(client: APIClient, stubs) -> None:
