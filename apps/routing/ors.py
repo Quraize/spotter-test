@@ -30,7 +30,12 @@ class ORSClient:
         if not self.api_key:
             raise ProviderError("ors: ORS_API_KEY is not configured")
         self._client = make_client(
-            base_url or settings.ORS_BASE_URL, headers={"Authorization": self.api_key}
+            base_url or settings.ORS_BASE_URL,
+            headers={
+                "Authorization": self.api_key,
+                # The /geojson directions endpoint answers 406 to a bare application/json.
+                "Accept": "application/json, application/geo+json;q=0.9, */*;q=0.8",
+            },
         )
 
     # -- RouteProvider -------------------------------------------------------------------

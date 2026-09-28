@@ -1,8 +1,8 @@
 """
 Routing/geocoding provider tests. All HTTP is mocked with respx; nothing here goes online.
 
-Fixtures: osrm_route.json is a trimmed live recording. The ORS fixtures follow the documented
-response format and should be replaced with live recordings when a working key is available.
+Fixtures under tests/fixtures are trimmed live recordings (ORS directions on driving-hgv,
+ORS geocode, OSRM route), captured 2026-09-28.
 """
 
 from __future__ import annotations
@@ -182,7 +182,7 @@ def test_ors_geocode_returns_us_place() -> None:
     place = ORSClient(api_key="k", base_url=ORS).geocode("1600 Pennsylvania Ave NW, Washington, DC")
 
     assert place == Place(
-        "1600 Pennsylvania Avenue Northwest, Washington, DC, USA", 38.897675, -77.036547, "ors"
+        "1600 Pennsylvania Avenue NW, Washington, DC, USA", 38.897473, -77.036548, "ors"
     )
     assert mocked.calls.last.request.url.params["boundary.country"] == "USA"
 

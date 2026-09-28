@@ -173,7 +173,7 @@ Errors: 400 for invalid input, 422 if a location cannot be resolved or lies outs
 - [x] `ors.py` directions (driving-hgv) + geocode; `osrm.py` fallback
 - [x] httpx client with hard timeouts, one retry, normalized output (miles, minutes, GeoJSON)
 - [x] Route cache keyed by rounded coordinates (Django cache framework)
-- [x] Tests with recorded fixtures, no live calls (ORS fixtures are doc-shaped until a key works)
+- [x] Tests with recorded fixtures, no live calls (all fixtures are trimmed live recordings)
 
 ### Phase 4 — Input resolver (~1 h)
 - [ ] `lat,lng` parsing + USA bounds check

@@ -1,31 +1,85 @@
 {
-  "_note": "Shape per ORS v2 directions GeoJSON docs; coordinates trimmed. Replace with a live recording once an ORS key is active.",
-  "type": "FeatureCollection",
-  "bbox": [-96.797, 32.7767, -87.6298, 41.8781],
-  "features": [
-    {
-      "bbox": [-96.797, 32.7767, -87.6298, 41.8781],
-      "type": "Feature",
-      "properties": {
-        "summary": {"distance": 1495320.4, "duration": 58412.7}
-      },
-      "geometry": {
-        "type": "LineString",
-        "coordinates": [
-          [-87.6298, 41.8781],
-          [-88.9548, 40.4842],
-          [-90.1994, 38.627],
-          [-92.0, 36.9],
-          [-94.5786, 35.3],
-          [-96.797, 32.7767]
-        ]
-      }
+ "type": "FeatureCollection",
+ "bbox": [
+  -96.796753,
+  32.774037,
+  -87.624605,
+  41.8781
+ ],
+ "features": [
+  {
+   "bbox": [
+    -96.796753,
+    32.774037,
+    -87.624605,
+    41.8781
+   ],
+   "type": "Feature",
+   "properties": {
+    "summary": {
+     "distance": 1558057.4,
+     "duration": 77559.5
     }
-  ],
-  "metadata": {
-    "attribution": "openrouteservice.org | OpenStreetMap contributors",
-    "service": "routing",
-    "query": {"coordinates": [[-87.6298, 41.8781], [-96.797, 32.7767]], "profile": "driving-hgv", "format": "geojson"},
-    "engine": {"version": "9.0.0"}
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -87.629771,
+      41.8781
+     ],
+     [
+      -88.084215,
+      40.52271
+     ],
+     [
+      -88.923033,
+      38.258501
+     ],
+     [
+      -89.990435,
+      35.786081
+     ],
+     [
+      -92.420114,
+      34.648246
+     ],
+     [
+      -94.775186,
+      33.290525
+     ],
+     [
+      -96.796753,
+      32.775944
+     ]
+    ]
+   }
   }
+ ],
+ "metadata": {
+  "attribution": "openrouteservice.org | OpenStreetMap contributors",
+  "service": "routing",
+  "timestamp": 1790601544386,
+  "query": {
+   "coordinates": [
+    [
+     -87.6298,
+     41.8781
+    ],
+    [
+     -96.797,
+     32.7767
+    ]
+   ],
+   "profile": "driving-hgv",
+   "profileName": "driving-hgv",
+   "format": "geojson"
+  },
+  "engine": {
+   "version": "9.10.0",
+   "build_date": "2026-08-13T11:53:14Z",
+   "graph_date": "2026-09-23T04:04:43Z",
+   "osm_date": "2026-09-13T23:59:59Z"
+  }
+ }
 }
