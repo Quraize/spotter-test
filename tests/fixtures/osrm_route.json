@@ -1,0 +1,64 @@
+{
+ "code": "Ok",
+ "routes": [
+  {
+   "weight_name": "routability",
+   "geometry": {
+    "coordinates": [
+     [
+      -87.629771,
+      41.8781
+     ],
+     [
+      -88.179296,
+      40.323701
+     ],
+     [
+      -88.952632,
+      38.313937
+     ],
+     [
+      -89.729072,
+      36.249815
+     ],
+     [
+      -92.272124,
+      34.71257
+     ],
+     [
+      -94.776518,
+      33.290312
+     ],
+     [
+      -96.796754,
+      32.775944
+     ]
+    ],
+    "type": "LineString"
+   },
+   "weight": 61558.2,
+   "duration": 61558.2,
+   "distance": 1556077.8
+  }
+ ],
+ "waypoints": [
+  {
+   "hint": "fcA_g9zfQY0AAAAAAgAAAAcAAAA4AAAAHnnjPdeaKkAJwgFBdZ56QgAAAAACAAAABwAAADgAAAAdfwAANeDG-lQCfwIY4Mb6VAJ_AgIATwsAAAAA",
+   "location": [
+    -87.629771,
+    41.8781
+   ],
+   "name": "South Federal Street",
+   "distance": 2.407368586
+  },
+  {
+   "hint": "3sO2hw6D6I2IAAAAlgAAAAAAAAAAAAAAOv1jQl2NeEIAAAAAAAAAAIgAAACWAAAAAAAAAAAAAAAdfwAArv86-ggf9AG4_jr6_CH0AQAA7w8AAAAA",
+   "location": [
+    -96.796754,
+    32.775944
+   ],
+   "name": "",
+   "distance": 86.95094004
+  }
+ ]
+}

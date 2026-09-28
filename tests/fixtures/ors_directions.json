@@ -1,0 +1,31 @@
+{
+  "_note": "Shape per ORS v2 directions GeoJSON docs; coordinates trimmed. Replace with a live recording once an ORS key is active.",
+  "type": "FeatureCollection",
+  "bbox": [-96.797, 32.7767, -87.6298, 41.8781],
+  "features": [
+    {
+      "bbox": [-96.797, 32.7767, -87.6298, 41.8781],
+      "type": "Feature",
+      "properties": {
+        "summary": {"distance": 1495320.4, "duration": 58412.7}
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-87.6298, 41.8781],
+          [-88.9548, 40.4842],
+          [-90.1994, 38.627],
+          [-92.0, 36.9],
+          [-94.5786, 35.3],
+          [-96.797, 32.7767]
+        ]
+      }
+    }
+  ],
+  "metadata": {
+    "attribution": "openrouteservice.org | OpenStreetMap contributors",
+    "service": "routing",
+    "query": {"coordinates": [[-87.6298, 41.8781], [-96.797, 32.7767]], "profile": "driving-hgv", "format": "geojson"},
+    "engine": {"version": "9.0.0"}
+  }
+}

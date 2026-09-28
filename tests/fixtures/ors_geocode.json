@@ -1,0 +1,30 @@
+{
+  "_note": "Shape per ORS geocode (Pelias) docs. Replace with a live recording once an ORS key is active.",
+  "geocoding": {"version": "0.2", "attribution": "https://openrouteservice.org/terms-of-service/#attribution-geocode", "query": {"text": "1600 Pennsylvania Ave NW, Washington, DC", "size": 1}},
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [-77.036547, 38.897675]},
+      "properties": {
+        "id": "polyline:12345",
+        "gid": "openstreetmap:address:polyline:12345",
+        "layer": "address",
+        "source": "openstreetmap",
+        "name": "1600 Pennsylvania Avenue Northwest",
+        "housenumber": "1600",
+        "street": "Pennsylvania Avenue Northwest",
+        "confidence": 1,
+        "match_type": "exact",
+        "accuracy": "point",
+        "country": "United States",
+        "country_a": "USA",
+        "region": "District of Columbia",
+        "region_a": "DC",
+        "locality": "Washington",
+        "label": "1600 Pennsylvania Avenue Northwest, Washington, DC, USA"
+      }
+    }
+  ],
+  "bbox": [-77.036547, 38.897675, -77.036547, 38.897675]
+}

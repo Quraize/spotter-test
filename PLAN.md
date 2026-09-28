@@ -84,6 +84,8 @@ spotter-fuel-router/
 │   │   ├── ors.py            # OpenRouteService directions + geocode
 │   │   ├── osrm.py           # fallback routing
 │   │   ├── nominatim.py      # fallback geocoding
+│   │   ├── providers.py      # fallback chains, route cache, settings-driven factories
+│   │   ├── calls.py          # per-request external call counter (contextvar)
 │   │   └── resolver.py       # input -> latlng | local city hit | live geocode
 │   ├── planner/              # pure domain, zero Django imports
 │   │   ├── types.py          # Vehicle, Candidate, FuelStop, FuelPlan dataclasses
@@ -104,6 +106,7 @@ spotter-fuel-router/
     ├── test_geo.py
     ├── test_resolver.py
     ├── test_import.py
+    ├── test_routing.py       # respx-mocked providers, retry, fallback, cache, factories
     └── test_api.py           # providers mocked, full request cycle
 ```
 
@@ -166,11 +169,11 @@ Errors: 400 for invalid input, 422 if a location cannot be resolved or lies outs
 - [x] Tests on a synthetic route
 
 ### Phase 3 — Routing clients (~1.5 h)
-- [ ] `base.py` protocols + `Route`/`Place` dataclasses
-- [ ] `ors.py` directions (driving-hgv) + geocode; `osrm.py` fallback
-- [ ] httpx client with hard timeouts, one retry, normalized output (miles, minutes, GeoJSON)
-- [ ] Route cache keyed by rounded coordinates (Django cache framework)
-- [ ] Tests with recorded fixtures, no live calls
+- [x] `base.py` protocols + `Route`/`Place` dataclasses
+- [x] `ors.py` directions (driving-hgv) + geocode; `osrm.py` fallback
+- [x] httpx client with hard timeouts, one retry, normalized output (miles, minutes, GeoJSON)
+- [x] Route cache keyed by rounded coordinates (Django cache framework)
+- [x] Tests with recorded fixtures, no live calls (ORS fixtures are doc-shaped until a key works)
 
 ### Phase 4 — Input resolver (~1 h)
 - [ ] `lat,lng` parsing + USA bounds check
