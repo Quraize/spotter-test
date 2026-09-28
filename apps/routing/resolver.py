@@ -18,9 +18,10 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from dataclasses import replace as dc_replace
 
 from apps.routing.base import GeocodeProvider, Place
-from apps.routing.local_cities import LocalCityIndex
+from apps.routing.local_cities import US_STATES, LocalCityIndex
 from apps.routing.usa import is_in_usa
 
 _COORDS = re.compile(r"^\s*([-+]?\d{1,3}(?:\.\d+)?)\s*,\s*([-+]?\d{1,3}(?:\.\d+)?)\s*$")
@@ -46,6 +47,7 @@ _ALIASES = {
 }
 _COUNTRY_SUFFIXES = ("usa", "us", "u.s.", "u.s.a.", "united states", "united states of america")
 MAX_QUERY_LENGTH = 200
+_STATE_IN_NAME = re.compile(r",\s*([A-Z]{2}),\s*(?:USA|United States)\s*$")
 
 
 class LocationNotFound(Exception):
@@ -62,7 +64,12 @@ class LocationResolver:
     cities: LocalCityIndex
     geocoder: GeocodeProvider | None = None
 
-    def resolve(self, raw: str) -> Place:
+    def resolve(self, raw: str, state: str | None = None) -> Place:
+        """
+        Resolve free text to a Place. ``state`` (two-letter code) is an optional hint: it is
+        appended to the text unless the text is coordinates or already names that state, so
+        "Springfield" + "IL" resolves like "Springfield, IL".
+        """
         query = " ".join((raw or "").split())
         if not query:
             raise ValueError("location must not be empty")
@@ -75,12 +82,29 @@ class LocationResolver:
         base = self._strip_country(query)
         alias = _ALIASES.get(base.lower()) or _ALIASES.get(base.rstrip(".;,!").lower())
         stripped = alias or base.rstrip(".;,!")
+        if state:
+            stripped = self._with_state(stripped, state)
         if (place := self._from_local(stripped)) is not None:
             return place
 
         # A recognised nickname is sent to the geocoder expanded; anything else goes verbatim
-        # (street addresses and landmarks geocode best untouched).
-        return self._checked(query, self._from_geocoder(alias or query))
+        # (street addresses and landmarks geocode best untouched), plus the state hint.
+        text = alias or query
+        if state:
+            text = self._with_state(text, state)
+        return self._checked(query, self._from_geocoder(text))
+
+    def _with_state(self, text: str, state: str) -> str:
+        code = state.strip().upper()
+        if code not in US_STATES:
+            raise ValueError(f"unknown state code {state!r}")
+        parts = [p.strip() for p in text.split(",") if p.strip()]
+        last_words = parts[-1].split() if parts else []
+        already = parts and (
+            self.cities.state_code(parts[-1]) == code
+            or (len(last_words) >= 2 and self.cities.state_code(last_words[-1]) == code)
+        )
+        return text if already else f"{text}, {code}"
 
     # -- rungs ---------------------------------------------------------------------------
 
@@ -136,4 +160,6 @@ class LocationResolver:
     def _checked(query: str, place: Place) -> Place:
         if not is_in_usa(place.lat, place.lng):
             raise LocationNotFound(query, f"resolved to {place.name!r}, which is outside the USA")
+        if place.state is None and (m := _STATE_IN_NAME.search(place.name)):
+            place = dc_replace(place, state=m.group(1))
         return place

@@ -98,11 +98,13 @@ class ORSClient:
             if props.get("layer") in _AREA_LAYERS:
                 return None
             lng, lat = hit["geometry"]["coordinates"][:2]
+            region = str(props.get("region_a") or "").upper()
             return Place(
                 name=str(props.get("label") or query),
                 lat=float(lat),
                 lng=float(lng),
                 source=self.name,
+                state=region if len(region) == 2 else None,
             )
         except (KeyError, IndexError, TypeError, ValueError):
             return None

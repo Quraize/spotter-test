@@ -29,6 +29,7 @@ class Place:
     lat: float
     lng: float
     source: str
+    state: str | None = None  # two-letter code when known
 
     @property
     def lnglat(self) -> tuple[float, float]:

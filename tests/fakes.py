@@ -11,8 +11,8 @@ from apps.stations.index import StationCatalog, StationInfo
 
 LAT = 40.0
 MILES_PER_DEG_LNG = MILES_PER_DEG_LAT * np.cos(np.radians(LAT))
-START = Place("Start, IL, USA", LAT, -90.0, "local")
-FINISH = Place("Finish, OH, USA", LAT, -80.0, "local")
+START = Place("Start, IL, USA", LAT, -90.0, "local", state="IL")
+FINISH = Place("Finish, OH, USA", LAT, -80.0, "local", state="OH")
 
 
 def synthetic_route() -> Route:
@@ -59,7 +59,7 @@ class StubResolver:
         self.places = {"Start, IL": START, "Finish, OH": FINISH}
         self.fail: Exception | None = None
 
-    def resolve(self, raw: str) -> Place:
+    def resolve(self, raw: str, state: str | None = None) -> Place:
         if self.fail:
             raise self.fail
         try:

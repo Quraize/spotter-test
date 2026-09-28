@@ -183,7 +183,11 @@ def test_ors_geocode_returns_us_place() -> None:
     place = ORSClient(api_key="k", base_url=ORS).geocode("1600 Pennsylvania Ave NW, Washington, DC")
 
     assert place == Place(
-        "1600 Pennsylvania Avenue NW, Washington, DC, USA", 38.897473, -77.036548, "ors"
+        "1600 Pennsylvania Avenue NW, Washington, DC, USA",
+        38.897473,
+        -77.036548,
+        "ors",
+        state="DC",
     )
     assert mocked.calls.last.request.url.params["boundary.country"] == "USA"
 

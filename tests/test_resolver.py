@@ -39,7 +39,7 @@ class RecordingGeocoder:
         return self.result
 
 
-SPRINGFIELD_MO = Place("Springfield, MO, USA", 37.2090, -93.2923, "ors")
+SPRINGFIELD_MO = Place("Springfield, MO, USA", 37.2090, -93.2923, "ors", state="MO")
 
 
 @pytest.fixture
@@ -102,7 +102,7 @@ def test_integer_looking_input_is_not_treated_as_coordinates(resolver, geocoder)
 def test_city_state_variants_resolve_locally(resolver, geocoder, text) -> None:
     place = resolver.resolve(text)
 
-    assert place == Place("Chicago, IL, USA", 41.8781, -87.6298, "local")
+    assert place == Place("Chicago, IL, USA", 41.8781, -87.6298, "local", state="IL")
     assert geocoder.queries == []
 
 
@@ -299,3 +299,49 @@ def test_trailing_punctuation_is_ignored(resolver, geocoder) -> None:
     assert resolver.resolve("Chicago, IL.").name == "Chicago, IL, USA"
     assert resolver.resolve("Dallas, TX;").name.startswith("Dallas")
     assert geocoder.queries == []
+
+
+# ---------------------------------------------------------------------------
+# State hint and resolved state
+# ---------------------------------------------------------------------------
+
+
+def test_state_hint_disambiguates_locally(resolver, geocoder) -> None:
+    place = resolver.resolve("Springfield", state="IL")
+
+    assert place.name == "Springfield, IL, USA"
+    assert place.state == "IL"
+    assert geocoder.queries == []
+
+
+def test_state_hint_is_appended_for_geocoder_queries(resolver, geocoder) -> None:
+    resolver.resolve("123 Main St", state="tx")
+
+    assert geocoder.queries == ["123 Main St, TX"]
+
+
+def test_state_hint_not_duplicated_when_text_already_has_it(resolver, geocoder) -> None:
+    resolver.resolve("Somewhere, TX", state="TX")
+    resolver.resolve("Somewhere TX", state="TX")
+
+    assert geocoder.queries == ["Somewhere, TX", "Somewhere TX"]
+
+
+def test_state_hint_ignored_for_coordinates(resolver, geocoder) -> None:
+    place = resolver.resolve("41.8781,-87.6298", state="TX")
+
+    assert place.source == "coords"
+    assert geocoder.queries == []
+
+
+def test_unknown_state_hint_rejected(resolver) -> None:
+    with pytest.raises(ValueError, match="unknown state"):
+        resolver.resolve("Chicago", state="ZZ")
+
+
+def test_resolved_state_is_parsed_from_geocoder_labels(cities) -> None:
+    resolver = LocationResolver(
+        cities, RecordingGeocoder(Place("Somewhere, MO, USA", 37.2, -93.3, "ors"))
+    )
+
+    assert resolver.resolve("Somewhere St").state == "MO"

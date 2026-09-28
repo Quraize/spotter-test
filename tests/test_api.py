@@ -52,6 +52,7 @@ def test_plan_via_get(client: APIClient, stubs) -> None:
         "name": "Start, IL, USA",
         "lat": 40.0,
         "lng": -90.0,
+        "state": "IL",
         "source": "local",
     }
     assert body["route"]["provider"] == "stub"
@@ -302,3 +303,28 @@ def test_throttle_kicks_in(client: APIClient, stubs, monkeypatch) -> None:
     assert response.status_code == 429
     assert response.json()["code"] == "throttled"
     assert "Retry-After" in response.headers
+
+
+def test_state_parameters_pin_the_lookup_and_echo_back(client: APIClient, stubs) -> None:
+    resolver, _, _ = stubs
+    seen = []
+    original = resolver.resolve
+    resolver.resolve = lambda raw, state=None: (seen.append((raw, state)), original(raw))[1]
+
+    response = client.get(
+        URL,
+        {"start": "Start, IL", "finish": "Finish, OH", "start_state": "IL", "finish_state": "oh"},
+    )
+
+    assert response.status_code == 200, response.content
+    assert seen == [("Start, IL", "IL"), ("Finish, OH", "OH")]
+    body = response.json()
+    assert body["start"]["state"] == "IL"
+    assert "start_state=IL" in body["map_url"] and "finish_state=OH" in body["map_url"]
+
+
+def test_invalid_state_parameter_is_400(client: APIClient, stubs) -> None:
+    response = client.get(URL, {"start": "Start, IL", "finish": "Finish, OH", "start_state": "ZZ"})
+
+    assert response.status_code == 400
+    assert "start_state" in response.json()["errors"]

@@ -107,3 +107,17 @@ def test_map_page_escapes_user_input(client: APIClient, stubs) -> None:
     assert "<script>alert(1)</script>" not in html
     assert "<img" not in html  # the tag never appears raw...
     assert "&lt;img src=x onerror=alert(1)&gt;" in html  # ...only escaped, as inert text
+
+
+def test_map_form_has_required_state_selects_prefilled(client: APIClient, stubs) -> None:
+    response = client.get(
+        MAP,
+        {"start": "Start, IL", "finish": "Finish, OH", "start_state": "il", "finish_state": "OH"},
+    )
+
+    html = response.content.decode()
+    assert response.status_code == 200
+    assert '<select name="start_state" id="start_state" required>' in html
+    assert '<option value="IL" selected>IL</option>' in html
+    assert '<option value="OH" selected>OH</option>' in html
+    assert html.count('<option value="TX"') == 2  # both selects list every state

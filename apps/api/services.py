@@ -30,6 +30,8 @@ from apps.stations.index import StationCatalog, StationInfo, get_station_catalog
 class PlanRequest:
     start: str
     finish: str
+    start_state: str | None = None
+    finish_state: str | None = None
     initial_fuel_miles: float = 0.0
     stop_penalty: float = 10.0
     corridor_miles: float = 10.0
@@ -75,8 +77,8 @@ def plan_route(req: PlanRequest) -> PlanResult:
 
     with track_calls() as calls:
         with _timed(timings, "resolve"):
-            start = ResolvedPlace(req.start, resolver.resolve(req.start))
-            finish = ResolvedPlace(req.finish, resolver.resolve(req.finish))
+            start = ResolvedPlace(req.start, resolver.resolve(req.start, req.start_state))
+            finish = ResolvedPlace(req.finish, resolver.resolve(req.finish, req.finish_state))
 
         with _timed(timings, "route"):
             if _same_place(start.place, finish.place):

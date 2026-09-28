@@ -49,7 +49,11 @@ class CityRecord:
 
     def as_place(self) -> Place:
         return Place(
-            name=f"{self.city}, {self.state}, USA", lat=self.lat, lng=self.lng, source="local"
+            name=f"{self.city}, {self.state}, USA",
+            lat=self.lat,
+            lng=self.lng,
+            source="local",
+            state=self.state,
         )
 
 

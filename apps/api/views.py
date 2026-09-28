@@ -15,6 +15,7 @@ from rest_framework.views import APIView
 
 from apps.api.exceptions import translate
 from apps.api.serializers import (
+    STATE_CHOICES,
     ErrorSerializer,
     RoutePlanRequestSerializer,
     RoutePlanResponseSerializer,
@@ -99,13 +100,18 @@ class RoutePlanView(APIView):
 
 def plan_query(req) -> dict[str, str]:
     """The query string that reproduces a PlanRequest exactly (used for map/API links)."""
-    return {
+    q = {
         "start": req.start,
         "finish": req.finish,
         "initial_fuel_miles": f"{req.initial_fuel_miles:g}",
         "stop_penalty": f"{req.stop_penalty:g}",
         "corridor_miles": f"{req.corridor_miles:g}",
     }
+    if req.start_state:
+        q["start_state"] = req.start_state
+    if req.finish_state:
+        q["finish_state"] = req.finish_state
+    return q
 
 
 class RoutePlanMapView(View):
@@ -122,6 +128,9 @@ class RoutePlanMapView(View):
         form = {
             "start": request.GET.get("start", ""),
             "finish": request.GET.get("finish", ""),
+            "start_state": request.GET.get("start_state", "").upper(),
+            "finish_state": request.GET.get("finish_state", "").upper(),
+            "states": STATE_CHOICES,
             "initial_fuel_miles": request.GET.get("initial_fuel_miles", "0"),
             "stop_penalty": request.GET.get("stop_penalty", f"{settings.STOP_PENALTY_USD:g}"),
             "corridor_miles": request.GET.get("corridor_miles", f"{settings.CORRIDOR_MILES:g}"),

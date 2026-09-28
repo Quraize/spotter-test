@@ -11,6 +11,22 @@ from django.utils.http import urlencode
 from rest_framework import serializers
 
 from apps.api.services import PlanRequest, PlanResult
+from apps.routing.local_cities import US_STATES
+
+STATE_CHOICES = sorted(US_STATES)
+
+
+class StateField(serializers.ChoiceField):
+    """Two-letter US state code, accepted in any case."""
+
+    def __init__(self, **kwargs) -> None:
+        super().__init__(choices=STATE_CHOICES, **kwargs)
+
+    def to_internal_value(self, data):
+        if isinstance(data, str):
+            data = data.strip().upper()
+        return super().to_internal_value(data)
+
 
 MAX_LOCATION_LENGTH = 200
 # Response geometry is simplified to ~10 m for transport; planning always used the full line.
@@ -30,6 +46,16 @@ class RoutePlanRequestSerializer(serializers.Serializer):
     finish = serializers.CharField(
         max_length=MAX_LOCATION_LENGTH,
         help_text="Finish location in the USA, same formats as start.",
+    )
+    start_state = StateField(
+        required=False,
+        allow_blank=True,
+        help_text="Optional two-letter state to pin `start` to (ignored for coordinates).",
+    )
+    finish_state = StateField(
+        required=False,
+        allow_blank=True,
+        help_text="Optional two-letter state to pin `finish` to (ignored for coordinates).",
     )
     initial_fuel_miles = serializers.FloatField(
         required=False,
@@ -73,6 +99,8 @@ class RoutePlanRequestSerializer(serializers.Serializer):
         return PlanRequest(
             start=d["start"].strip(),
             finish=d["finish"].strip(),
+            start_state=d.get("start_state") or None,
+            finish_state=d.get("finish_state") or None,
             initial_fuel_miles=d["initial_fuel_miles"],
             stop_penalty=d.get("stop_penalty", settings.STOP_PENALTY_USD),
             corridor_miles=d.get("corridor_miles", settings.CORRIDOR_MILES),
@@ -90,6 +118,9 @@ class PlaceSerializer(serializers.Serializer):
     name = serializers.CharField(source="place.name")
     lat = serializers.FloatField(source="place.lat")
     lng = serializers.FloatField(source="place.lng")
+    state = serializers.CharField(
+        source="place.state", allow_null=True, help_text="Two-letter state of the resolved place."
+    )
     source = serializers.CharField(
         source="place.source", help_text="coords | local | ors | nominatim"
     )
