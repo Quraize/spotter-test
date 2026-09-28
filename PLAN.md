@@ -134,10 +134,10 @@ Errors: 400 for invalid input, 422 if a location cannot be resolved or lies outs
 ## Build order
 
 ### Phase 0 — Scaffold (~30 min)
-- [ ] `uv init`, Django 6.1.1, DRF, drf-spectacular, django-environ, httpx, shapely, numpy
-- [ ] ruff, pytest-django, `.env.example`, `.gitignore`, `Makefile`
-- [ ] `config/settings.py` env-driven; `/api/v1/health/` endpoint
-- [ ] First commit
+- [x] `uv init`, Django 6.1.1, DRF, drf-spectacular, django-environ, httpx, shapely, numpy
+- [x] ruff, pytest-django, `.env.example`, `.gitignore`, `Makefile`
+- [x] `config/settings.py` env-driven; `/api/v1/health/` endpoint
+- [x] First commit
 
 ### Phase 1 — Station data pipeline (~2 h, then geocode runs in background)
 - [ ] `Station` model + migration
