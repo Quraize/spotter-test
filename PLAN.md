@@ -96,11 +96,12 @@ spotter-fuel-router/
 │   │   ├── corridor.py       # RouteGeometry, StationIndex (STRtree), find_candidates
 │   │   └── optimizer.py      # stop-penalty DP (production) + greedy (reference), oracle-verified
 │   └── api/
-│       ├── serializers.py    # request validation, response shape
-│       ├── views.py          # RoutePlanView: resolver -> route -> corridor -> optimizer
+│       ├── serializers.py    # request validation, response shape (= OpenAPI contract)
+│       ├── services.py       # plan_route(): resolver -> route -> corridor -> optimizer
+│       ├── views.py          # RoutePlanView (GET query params / POST JSON), HealthView
+│       ├── warmup.py         # pre-load catalog/city table/boundary/providers from wsgi.py
 │       ├── urls.py
-│       ├── throttles.py
-│       ├── exceptions.py     # upstream failures -> clean 502/504 with detail
+│       ├── exceptions.py     # domain/provider errors -> 400/422/502/503/504 with detail
 │       └── templates/api/map.html   # Leaflet page fed by the plan JSON
 └── tests/
     ├── test_optimizer.py     # unit cases + 400 random instances vs exact DP oracle
@@ -184,10 +185,10 @@ Errors: 400 for invalid input, 422 if a location cannot be resolved or lies outs
 - [x] Tests
 
 ### Phase 5 — API layer (~1.5 h)
-- [ ] Request serializer (start, finish, `initial_fuel_miles`, optional `corridor_miles`)
-- [ ] `RoutePlanView` orchestration, response serializer
-- [ ] Throttling, upstream error mapping, OpenAPI schema at `/api/schema/` + Swagger UI
-- [ ] End-to-end tests with mocked providers
+- [x] Request serializer (start, finish, `initial_fuel_miles`, optional `corridor_miles`)
+- [x] `RoutePlanView` orchestration, response serializer
+- [x] Throttling (DRF anon rate), error mapping (422 unresolvable/unroutable/planning, 502/504 upstream, 503 no data), OpenAPI at `/api/schema/` + Swagger UI at `/api/docs/`
+- [x] End-to-end tests with mocked providers
 
 ### Phase 6 — Map page (~45 min)
 - [ ] `map.html` with Leaflet: route line, numbered stop markers, price/gallons popups, summary box

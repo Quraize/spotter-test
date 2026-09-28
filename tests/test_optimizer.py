@@ -359,3 +359,38 @@ def test_dp_gap_errors_match_greedy_on_infeasible_instances() -> None:
                 greedy_exc.to_mile,
             )
             seen += 1
+
+
+# ---------------------------------------------------------------------------
+# Negligible purchases (stations sharing a mile marker)
+# ---------------------------------------------------------------------------
+
+
+def test_stations_at_the_same_exit_do_not_produce_zero_gallon_stops() -> None:
+    # Two stations 0.02 miles apart at the start; the cheaper one is second. Without merging,
+    # the plan would "buy" 0.02 miles at the first to reach the second.
+    plan = plan_fuel_stops(300, [cand(1, 0.00, 3.5), cand(2, 0.02, 3.0)], V, stop_penalty=0)
+
+    assert ids(plan) == [2]
+    assert plan.pre_trip is None or plan.pre_trip.gallons >= 0.01
+    assert all(s.gallons >= 0.01 for s in plan.stops)
+    assert plan.total_gallons == pytest.approx(30.0)
+    assert plan.stops[0].fuel_on_arrival_gallons == pytest.approx(0.0)
+
+
+def test_negligible_pre_trip_is_folded_into_first_stop() -> None:
+    plan = plan_fuel_stops(300, [cand(1, 0.03, 3.0)], V)
+
+    assert plan.pre_trip is None
+    assert ids(plan) == [1]
+    assert plan.stops[0].gallons == pytest.approx(30.0)
+    assert plan.total_cost == pytest.approx(90.0)
+
+
+def test_negligible_last_purchase_is_folded_backwards() -> None:
+    # Fill at A (500 mi) then a 0.05 mile top-up at B to finish: B is dropped, A absorbs it.
+    plan = plan_fuel_stops(500.05, [cand(1, 0, 3.0), cand(2, 500, 9.0)], V)
+
+    assert ids(plan) == [1]
+    assert plan.stops[0].gallons == pytest.approx(50.005)
+    assert plan.total_gallons == pytest.approx(plan.gallons_consumed)

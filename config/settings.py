@@ -145,6 +145,7 @@ SPECTACULAR_SETTINGS = {
 VEHICLE_RANGE_MILES = 500.0
 VEHICLE_MPG = 10.0
 CORRIDOR_MILES = 10.0  # city-centroid geocoding needs slack; 5 mi drops too many stations
+STOP_PENALTY_USD = 10.0  # driver time per stop; 0 = pure cost minimum (many tiny stops)
 
 # Ordered fallback chains; the first usable provider is primary.
 ROUTING_PROVIDERS = env("ROUTING_PROVIDERS")

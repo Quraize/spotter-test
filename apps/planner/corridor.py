@@ -17,6 +17,10 @@ from shapely import STRtree
 from apps.planner.geo import PROJECTION, haversine_miles
 from apps.planner.types import Candidate
 
+# The STRtree is queried with short pieces of the route rather than the whole polyline, so
+# each distance predicate runs against a few hundred vertices instead of tens of thousands.
+_CHUNK_VERTICES = 256
+
 
 class RouteGeometry:
     """A driving route as a (lng, lat) polyline with cumulative geodesic mile markers."""
@@ -38,14 +42,30 @@ class RouteGeometry:
         self.line = shapely.LineString(xy)
         pseg = np.hypot(*(np.diff(xy, axis=0).T))
         self._pcum = np.concatenate([[0.0], np.cumsum(pseg)])
+        # Overlapping pieces of the line (the last one may be shorter). Spatial queries and
+        # point location run against a chunk, never the whole line: locating 500 stations on
+        # a 21k-vertex cross-country line took 600 ms; on chunks it takes a few ms.
+        starts = list(range(0, max(len(xy) - 1, 1), _CHUNK_VERTICES))
+        self.chunks = np.array(
+            [shapely.LineString(xy[i : i + _CHUNK_VERTICES + 1]) for i in starts], dtype=object
+        )
+        self._chunk_offsets = self._pcum[starts]
 
-    def locate(self, lngs: np.ndarray, lats: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    def nearest_chunks(self, points: np.ndarray) -> np.ndarray:
+        """Index of the chunk closest to each projected point (brute force over chunks)."""
+        dist = shapely.distance(self.chunks[None, :], points[:, None])
+        return np.argmin(dist, axis=1)
+
+    def locate(
+        self, lngs: np.ndarray, lats: np.ndarray, chunk_idx: np.ndarray | None = None
+    ) -> tuple[np.ndarray, np.ndarray]:
         """
         For each point: (mile marker of the nearest point on the route, geodesic detour miles).
 
-        The nearest point is found in projected space; the marker is then interpolated between
-        the geodesic markers of that segment's endpoints, so it is not affected by projection
-        distortion.
+        The nearest point is found in projected space on the point's nearest chunk; the marker
+        is then interpolated between the geodesic markers of that segment's endpoints, so it is
+        not affected by projection distortion. ``chunk_idx`` may be supplied by the caller
+        (the spatial index already knows it); otherwise it is computed.
         """
         lngs = np.asarray(lngs, dtype=float)
         lats = np.asarray(lats, dtype=float)
@@ -54,7 +74,11 @@ class RouteGeometry:
 
         xy = PROJECTION.to_xy(lngs, lats)
         points = shapely.points(xy)
-        along = shapely.line_locate_point(self.line, points)
+        if chunk_idx is None:
+            chunk_idx = self.nearest_chunks(points)
+        chunks = self.chunks[chunk_idx]
+        local = shapely.line_locate_point(chunks, points)
+        along = self._chunk_offsets[chunk_idx] + local
 
         seg = np.clip(np.searchsorted(self._pcum, along, side="right") - 1, 0, len(self._pcum) - 2)
         seg_len = self._pcum[seg + 1] - self._pcum[seg]
@@ -65,7 +89,7 @@ class RouteGeometry:
             self._scale
         )
 
-        nearest = shapely.line_interpolate_point(self.line, along)
+        nearest = shapely.line_interpolate_point(chunks, local)
         near_xy = shapely.get_coordinates(nearest)
         near_lng, near_lat = PROJECTION.to_lnglat(near_xy)
         detours = haversine_miles(lats, lngs, near_lat, near_lng)
@@ -90,20 +114,33 @@ class StationIndex:
         if not (len(self.lats) == len(self.lngs) == len(self.prices) == n):
             raise ValueError("ids, lats, lngs and prices must have the same length")
         xy = PROJECTION.to_xy(self.lngs, self.lats)
-        self._tree = STRtree(shapely.points(xy)) if n else None
+        self._points = shapely.points(xy) if n else np.empty(0, dtype=object)
+        self._tree = STRtree(self._points) if n else None
 
     def __len__(self) -> int:
         return len(self.ids)
 
-    def near_route(self, route: RouteGeometry, corridor_miles: float) -> np.ndarray:
-        """Indices of stations whose projected distance to the route is within the corridor."""
+    def near_route(
+        self, route: RouteGeometry, corridor_miles: float
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """
+        (station indices, nearest chunk index for each) for stations whose projected distance
+        to the route is within the corridor.
+        """
         if self._tree is None:
-            return np.empty(0, dtype=np.int64)
+            return np.empty(0, dtype=np.int64), np.empty(0, dtype=np.int64)
         # dwithin runs in projected units; widen by the worst-case Mercator scale and let the
         # exact geodesic detour in find_candidates make the final cut.
-        return self._tree.query(
-            route.line, predicate="dwithin", distance=corridor_miles * PROJECTION.max_scale
+        chunk_of, point_of = self._tree.query(
+            route.chunks, predicate="dwithin", distance=corridor_miles * PROJECTION.max_scale
         )
+        if point_of.size == 0:
+            return np.empty(0, dtype=np.int64), np.empty(0, dtype=np.int64)
+        # A station near a chunk boundary matches two chunks: keep the closer one.
+        dist = shapely.distance(route.chunks[chunk_of], self._points[point_of])
+        order = np.lexsort((dist, point_of))
+        points, first = np.unique(point_of[order], return_index=True)
+        return points, chunk_of[order][first]
 
 
 def find_candidates(
@@ -112,11 +149,11 @@ def find_candidates(
     """Stations within `corridor_miles` of the route, sorted by mile marker then price."""
     if corridor_miles <= 0:
         raise ValueError("corridor_miles must be positive")
-    idx = index.near_route(route, corridor_miles)
+    idx, chunk_idx = index.near_route(route, corridor_miles)
     if idx.size == 0:
         return []
 
-    markers, detours = route.locate(index.lngs[idx], index.lats[idx])
+    markers, detours = route.locate(index.lngs[idx], index.lats[idx], chunk_idx)
     keep = detours <= corridor_miles
     idx, markers, detours = idx[keep], markers[keep], detours[keep]
 

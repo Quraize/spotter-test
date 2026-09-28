@@ -126,3 +126,45 @@ def test_real_geometry_scale_sanity() -> None:
     assert route.total_miles == pytest.approx(total, rel=1e-3)
     assert markers[0] == pytest.approx(total / 2, rel=0.01)
     assert detours[0] < 0.01
+
+
+def test_long_route_is_chunked_and_finds_stations_in_every_chunk() -> None:
+    # 1,001 vertices -> 4 chunks, the last one shorter than the rest.
+    route = parallel_route(n=1001)
+    lngs = [-89.9, -87.0, -84.0, -81.0, -80.1]
+    index = StationIndex(
+        ids=list(range(len(lngs))), lats=[LAT] * len(lngs), lngs=lngs, prices=[3.0] * len(lngs)
+    )
+
+    assert len(route.chunks) == 4
+    cands = find_candidates(route, index, corridor_miles=5)
+
+    assert [c.station_id for c in cands] == [0, 1, 2, 3, 4]
+    assert cands[-1].mile_marker == pytest.approx(9.9 * MILES_PER_DEG_LNG, rel=0.002)
+
+
+def test_chunk_local_locate_matches_full_line() -> None:
+    # Points scattered along an L-shaped 1,000-vertex route, some near chunk boundaries.
+    east = np.column_stack([np.linspace(-90, -85, 501), np.full(501, LAT)])
+    north = np.column_stack([np.full(500, -85.0), np.linspace(LAT, LAT + 3, 501)[1:]])
+    route = RouteGeometry(np.vstack([east, north]))
+    assert len(route.chunks) > 1
+    rng = np.random.default_rng(1)
+    lngs = np.concatenate([rng.uniform(-90, -85, 40), np.full(40, -85.0) + rng.normal(0, 0.05, 40)])
+    lats = np.concatenate([LAT + rng.normal(0, 0.05, 40), rng.uniform(LAT, LAT + 3, 40)])
+
+    markers, detours = route.locate(lngs, lats)
+
+    # Reference: exact projection onto the whole line.
+    import shapely
+
+    from apps.planner.geo import PROJECTION
+
+    pts = shapely.points(PROJECTION.to_xy(lngs, lats))
+    ref_along = shapely.line_locate_point(route.line, pts)
+    ref_near = shapely.get_coordinates(shapely.line_interpolate_point(route.line, ref_along))
+    ref_lng, ref_lat = PROJECTION.to_lnglat(ref_near)
+    ref_detours = haversine_miles(lats, lngs, ref_lat, ref_lng)
+
+    assert detours == pytest.approx(ref_detours, abs=1e-6)
+    assert np.all(np.diff(markers[np.argsort(ref_along)]) >= -1e-6)  # same ordering as full line

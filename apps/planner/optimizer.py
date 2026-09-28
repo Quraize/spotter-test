@@ -39,6 +39,10 @@ from apps.planner.types import Candidate, FuelPlan, FuelStop, Vehicle
 EPS = 1e-9
 # Among plans with (numerically) equal cost, prefer fewer stops.
 _TIE_BREAK_PENALTY = 1e-7
+# Purchases below this are artefacts of stations sharing a mile marker (e.g. two truck stops
+# at the same exit); they are folded into a neighbouring purchase so no "0.00 gallon" stop
+# is ever reported. Fuel accounting stays exact.
+MIN_PURCHASE_MILES = 0.1
 
 
 @dataclass(slots=True)
@@ -344,6 +348,30 @@ def _to_stop(p: _Purchase, vehicle: Vehicle) -> FuelStop:
     )
 
 
+def _merge_negligible(
+    pre_trip: _Purchase | None, purchases: list[_Purchase]
+) -> tuple[_Purchase | None, list[_Purchase]]:
+    """Fold sub-0.1-mile purchases into the next (or previous) purchase."""
+    if pre_trip is not None and pre_trip.bought_miles < MIN_PURCHASE_MILES and purchases:
+        first = purchases[0]
+        first.bought_miles += pre_trip.bought_miles
+        first.arrival_miles = max(0.0, first.arrival_miles - pre_trip.bought_miles)
+        pre_trip = None
+    kept: list[_Purchase] = []
+    carry = 0.0
+    for p in purchases:
+        if p.bought_miles + carry < MIN_PURCHASE_MILES and p is not purchases[-1]:
+            carry += p.bought_miles
+            continue
+        p.bought_miles += carry
+        p.arrival_miles = max(0.0, p.arrival_miles - carry)
+        carry = 0.0
+        kept.append(p)
+    if len(kept) >= 2 and kept[-1].bought_miles < MIN_PURCHASE_MILES:
+        kept[-2].bought_miles += kept.pop().bought_miles
+    return pre_trip, kept
+
+
 def _finish(
     trip_miles: float,
     vehicle: Vehicle,
@@ -352,6 +380,7 @@ def _finish(
     purchases: list[_Purchase],
     leftover_miles: float,
 ) -> FuelPlan:
+    pre_trip, purchases = _merge_negligible(pre_trip, purchases)
     stops = tuple(_to_stop(p, vehicle) for p in purchases)
     pre = _to_stop(pre_trip, vehicle) if pre_trip else None
     all_purchases = (*stops, pre) if pre else stops
