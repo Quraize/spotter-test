@@ -18,63 +18,11 @@ from django.conf import settings
 
 from apps.routing.base import Place
 
+# 50 states + DC. Territories are excluded: no road route exists to them.
 US_STATES: frozenset[str] = frozenset(
-    [
-        "AL",
-        "AK",
-        "AZ",
-        "AR",
-        "CA",
-        "CO",
-        "CT",
-        "DE",
-        "DC",
-        "FL",
-        "GA",
-        "HI",
-        "ID",
-        "IL",
-        "IN",
-        "IA",
-        "KS",
-        "KY",
-        "LA",
-        "ME",
-        "MD",
-        "MA",
-        "MI",
-        "MN",
-        "MS",
-        "MO",
-        "MT",
-        "NE",
-        "NV",
-        "NH",
-        "NJ",
-        "NM",
-        "NY",
-        "NC",
-        "ND",
-        "OH",
-        "OK",
-        "OR",
-        "PA",
-        "RI",
-        "SC",
-        "SD",
-        "TN",
-        "TX",
-        "UT",
-        "VT",
-        "VA",
-        "WA",
-        "WV",
-        "WI",
-        "WY",
-    ]
+    "AL AK AZ AR CA CO CT DE DC FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE NV "
+    "NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY".split()
 )
-
-STATE_NAMES: dict[str, str] = {}  # filled lazily from the CSV (e.g. "IL" -> "Illinois")
 
 
 def normalize_city(city: str) -> str:
@@ -100,12 +48,13 @@ class LocalCityIndex:
     def __init__(self, path: Path) -> None:
         self._by_key: dict[tuple[str, str], CityRecord] = {}
         self._by_city: dict[str, list[CityRecord]] = {}
+        self._state_by_name: dict[str, str] = {}
         with path.open(encoding="utf-8", newline="") as fh:
             for row in csv.DictReader(fh):
                 state = row["STATE_CODE"].strip().upper()
                 if state not in US_STATES:
                     continue
-                STATE_NAMES.setdefault(state, row["STATE_NAME"].strip())
+                self._state_by_name.setdefault(normalize_city(row["STATE_NAME"]), state)
                 record = CityRecord(
                     city=row["CITY"].strip(),
                     state=state,
@@ -114,17 +63,28 @@ class LocalCityIndex:
                 )
                 key = (normalize_city(record.city), state)
                 # First occurrence wins; duplicates in the source are the same place repeated.
-                self._by_key.setdefault(key, record)
-                self._by_city.setdefault(key[0], []).append(record)
+                if key not in self._by_key:
+                    self._by_key[key] = record
+                    self._by_city.setdefault(key[0], []).append(record)
 
     def __len__(self) -> int:
         return len(self._by_key)
 
+    def state_code(self, text: str) -> str | None:
+        """'IL', 'il', or 'Illinois' -> 'IL'; None if it is not a US state."""
+        token = text.strip()
+        if len(token) == 2 and token.upper() in US_STATES:
+            return token.upper()
+        return self._state_by_name.get(normalize_city(token))
+
     def lookup(self, city: str, state: str) -> CityRecord | None:
-        return self._by_key.get((normalize_city(city), state.strip().upper()))
+        code = self.state_code(state)
+        if code is None:
+            return None
+        return self._by_key.get((normalize_city(city), code))
 
     def candidates(self, city: str) -> list[CityRecord]:
-        """All states that have a city with this name. Used to detect ambiguous input."""
+        """Every state that has a city with this name. Used to detect ambiguous input."""
         return list(self._by_city.get(normalize_city(city), ()))
 
 

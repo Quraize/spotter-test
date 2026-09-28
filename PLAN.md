@@ -67,6 +67,7 @@ spotter-fuel-router/
 ├── data/
 │   ├── fuel-prices-for-be-assessment.csv   # original, untouched
 │   ├── us_cities.csv                       # local geocoding table
+│   ├── usa_boundary.geojson                # Natural Earth USA polygon for input validation
 │   └── geocoded_places.csv                 # committed output of the geocode command
 ├── apps/
 │   ├── stations/             # reference data
@@ -86,6 +87,7 @@ spotter-fuel-router/
 │   │   ├── nominatim.py      # fallback geocoding
 │   │   ├── providers.py      # fallback chains, route cache, settings-driven factories
 │   │   ├── calls.py          # per-request external call counter (contextvar)
+│   │   ├── usa.py            # point-in-USA test against Natural Earth 10m boundary
 │   │   └── resolver.py       # input -> latlng | local city hit | live geocode
 │   ├── planner/              # pure domain, zero Django imports
 │   │   ├── types.py          # Vehicle, Candidate, FuelStop, FuelPlan dataclasses
@@ -176,10 +178,10 @@ Errors: 400 for invalid input, 422 if a location cannot be resolved or lies outs
 - [x] Tests with recorded fixtures, no live calls (all fixtures are trimmed live recordings)
 
 ### Phase 4 — Input resolver (~1 h)
-- [ ] `lat,lng` parsing + USA bounds check
-- [ ] Local city table lookup with state disambiguation; ambiguous → live geocoder
-- [ ] Live geocode via provider interface, resolved name echoed back
-- [ ] Tests
+- [x] `lat,lng` parsing + USA check against the real boundary polygon (bounding boxes admitted Toronto)
+- [x] Local city table lookup with state disambiguation; ambiguous → live geocoder
+- [x] Live geocode via provider interface, resolved name echoed back
+- [x] Tests
 
 ### Phase 5 — API layer (~1.5 h)
 - [ ] Request serializer (start, finish, `initial_fuel_miles`, optional `corridor_miles`)

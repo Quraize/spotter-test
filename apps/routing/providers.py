@@ -1,8 +1,9 @@
 """
-Provider assembly: fallback chains, route caching, and settings-driven factories.
+Provider assembly: fallback chains, caching, and settings-driven factories.
 
-    get_route_provider()    -> Cached(Fallback([ors, osrm]))     per ROUTING_PROVIDERS
-    get_geocode_provider()  -> Fallback([ors, nominatim])        per GEOCODING_PROVIDERS
+    get_route_provider()    -> Cached(Fallback([ors, osrm]))       per ROUTING_PROVIDERS
+    get_geocode_provider()  -> Cached(Fallback([ors, nominatim]))  per GEOCODING_PROVIDERS
+    get_resolver()          -> LocationResolver(local city index, geocode provider)
 
 Providers are process-level singletons so their HTTP connection pools are reused.
 """
@@ -19,9 +20,11 @@ from django.core.cache import cache
 
 from apps.routing.base import GeocodeProvider, Place, ProviderError, Route, RouteProvider
 from apps.routing.http import ProviderClientError
+from apps.routing.local_cities import get_city_index
 from apps.routing.nominatim import NominatimGeocoder
 from apps.routing.ors import ORSClient
 from apps.routing.osrm import OSRMRouter
+from apps.routing.resolver import LocationResolver
 
 logger = logging.getLogger(__name__)
 
@@ -102,6 +105,40 @@ class CachedRouteProvider:
         return route
 
 
+_NEGATIVE_TTL_SECONDS = 300
+_NO_MATCH = "__no_match__"
+
+
+class CachedGeocodeProvider:
+    """
+    Memoises geocode results by normalised query text. Misses are cached briefly too, so a
+    repeated typo does not burn quota. The map page re-resolving the same input costs nothing.
+    """
+
+    def __init__(self, inner: GeocodeProvider, ttl_seconds: int | None = None) -> None:
+        self.inner = inner
+        self.name = inner.name
+        self.ttl = ttl_seconds if ttl_seconds is not None else settings.ROUTE_CACHE_SECONDS
+
+    def cache_key(self, query: str) -> str:
+        raw = f"{self.name}|{' '.join(query.lower().split())}"
+        return "geocode:" + hashlib.sha1(raw.encode()).hexdigest()
+
+    def geocode(self, query: str) -> Place | None:
+        key = self.cache_key(query)
+        cached = cache.get(key)
+        if isinstance(cached, Place):
+            return cached
+        if cached == _NO_MATCH:
+            return None
+        place = self.inner.geocode(query)
+        if place is None:
+            cache.set(key, _NO_MATCH, _NEGATIVE_TTL_SECONDS)
+        else:
+            cache.set(key, place, self.ttl)
+        return place
+
+
 _ROUTE_FACTORIES: dict[str, Callable[[], RouteProvider]] = {
     "ors": ORSClient,
     "osrm": OSRMRouter,
@@ -137,10 +174,16 @@ def get_route_provider() -> RouteProvider:
 @lru_cache(maxsize=1)
 def get_geocode_provider() -> GeocodeProvider:
     chain = _build(settings.GEOCODING_PROVIDERS, _GEOCODE_FACTORIES, "geocoding")
-    return FallbackGeocodeProvider(chain)
+    return CachedGeocodeProvider(FallbackGeocodeProvider(chain))
+
+
+@lru_cache(maxsize=1)
+def get_resolver() -> LocationResolver:
+    return LocationResolver(cities=get_city_index(), geocoder=get_geocode_provider())
 
 
 def reset_providers() -> None:
     """For tests and settings changes."""
     get_route_provider.cache_clear()
     get_geocode_provider.cache_clear()
+    get_resolver.cache_clear()

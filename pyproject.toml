@@ -30,6 +30,7 @@ exclude = ["**/migrations/**"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "DJ", "SIM", "C4"]
+ignore = ["SIM905"]  # "a b c".split() is clearer than a 51-item list literal
 
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "config.settings"
