@@ -143,7 +143,7 @@ SPECTACULAR_SETTINGS = {
 # ---------------------------------------------------------------------------
 VEHICLE_RANGE_MILES = 500.0
 VEHICLE_MPG = 10.0
-CORRIDOR_MILES = 5.0
+CORRIDOR_MILES = 10.0  # city-centroid geocoding needs slack; 5 mi drops too many stations
 
 ROUTING_PROVIDER = env("ROUTING_PROVIDER")
 GEOCODING_PROVIDER = env("GEOCODING_PROVIDER")

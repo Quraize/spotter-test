@@ -33,14 +33,15 @@ route, the cost-optimal fuel stops along it, and the total fuel spend.
 3. **Geocoding provider:** ORS geocode primary (same key/quota pool), Nominatim fallback.
 4. **Ambiguous inputs** (e.g. "Springfield" with no state): skip local table, let live geocoder rank,
    echo the resolved place back in the response. Never block with a 400.
-5. **Initial fuel:** default **empty tank**. Entire trip fuel is purchased en route; first stop is the
-   first station encountered. `initial_fuel_miles` query param overrides (e.g. 500 = full tank).
+5. **Initial fuel:** default **empty tank**. Entire trip fuel is purchased en route. If the initial fuel
+   cannot reach the first station, the shortfall is a `pre_trip` purchase priced at that station and
+   reported separately (keeps tank accounting honest). `initial_fuel_miles` overrides (500 = full tank).
 6. **Algorithm:** greedy fill-up (Khuller, Malekian, Mestre — "To fill or not to fill").
    At each stop: if a cheaper station is reachable within range, buy just enough to reach it;
    otherwise fill up and go to the cheapest reachable station. Linear time, provably optimal for
    fractional purchases.
 7. **Station lookup:** in-memory numpy index loaded once per process; bounding-box prefilter, then
-   shapely projection onto the route polyline for mile marker + detour. Corridor tolerance ~5 miles.
+   shapely projection onto the route polyline for mile marker + detour. Corridor tolerance 10 miles (measured: 5 leaves gaps on long routes).
 8. **"Map":** GeoJSON route + stops in the JSON response, plus an HTML Leaflet page rendering it.
    Tiles are not routing calls.
 9. **Stack:** Django 6.1.1, DRF, drf-spectacular, django-environ, httpx, shapely, numpy, SQLite,
@@ -85,9 +86,11 @@ spotter-fuel-router/
 │   │   ├── nominatim.py      # fallback geocoding
 │   │   └── resolver.py       # input -> latlng | local city hit | live geocode
 │   ├── planner/              # pure domain, zero Django imports
-│   │   ├── types.py          # Candidate, FuelStop, FuelPlan dataclasses
-│   │   ├── corridor.py       # shapely projection: mile marker + detour per station
-│   │   └── optimizer.py      # greedy fill-up algorithm
+│   │   ├── types.py          # Vehicle, Candidate, FuelStop, FuelPlan dataclasses
+│   │   ├── exceptions.py     # PlanningError, NoStationsOnRoute, StationGapTooLarge
+│   │   ├── geo.py            # haversine + spherical Mercator (conformal) for indexing
+│   │   ├── corridor.py       # RouteGeometry, StationIndex (STRtree), find_candidates
+│   │   └── optimizer.py      # greedy fill-up algorithm, exact-DP verified
 │   └── api/
 │       ├── serializers.py    # request validation, response shape
 │       ├── views.py          # RoutePlanView: resolver -> route -> corridor -> optimizer
@@ -96,8 +99,9 @@ spotter-fuel-router/
 │       ├── exceptions.py     # upstream failures -> clean 502/504 with detail
 │       └── templates/api/map.html   # Leaflet page fed by the plan JSON
 └── tests/
-    ├── test_optimizer.py     # the important one
+    ├── test_optimizer.py     # unit cases + 400 random instances vs exact DP oracle
     ├── test_corridor.py
+    ├── test_geo.py
     ├── test_resolver.py
     ├── test_import.py
     └── test_api.py           # providers mocked, full request cycle
@@ -126,7 +130,7 @@ GET /api/v1/route-plan/?start=Chicago, IL&finish=Dallas, TX&initial_fuel_miles=0
     }
   ],
   "summary": {"total_gallons": 92.54, "total_fuel_cost": 301.22, "stops": 3, "mpg": 10, "range_miles": 500},
-  "assumptions": {"initial_fuel_miles": 0, "corridor_miles": 5},
+  "assumptions": {"initial_fuel_miles": 0, "corridor_miles": 10},
   "map_url": "/api/v1/route-plan/map/?start=Chicago%2C+IL&finish=Dallas%2C+TX",
   "external_calls": 1
 }
@@ -153,13 +157,13 @@ Errors: 400 for invalid input, 422 if a location cannot be resolved or lies outs
 - [x] Tests: import dedupe/filter logic
 
 ### Phase 2 — Planner domain, test first (~2 h)
-- [ ] `types.py` dataclasses
-- [ ] `optimizer.py` greedy fill-up
-- [ ] Tests: no stops needed, single stop, cheaper station ahead within range, no cheaper ahead,
+- [x] `types.py` dataclasses
+- [x] `optimizer.py` greedy fill-up
+- [x] Tests: no stops needed, single stop, cheaper station ahead within range, no cheaper ahead,
       unreachable gap (> 500 mi between stations → explicit error), initial fuel variants,
       finish reached with minimal leftover fuel
-- [ ] `corridor.py`: bbox prefilter + shapely `project()` → mile marker, `distance()` → detour
-- [ ] Tests on a synthetic route
+- [x] `corridor.py`: bbox prefilter + shapely `project()` → mile marker, `distance()` → detour
+- [x] Tests on a synthetic route
 
 ### Phase 3 — Routing clients (~1.5 h)
 - [ ] `base.py` protocols + `Route`/`Place` dataclasses
