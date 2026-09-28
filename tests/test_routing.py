@@ -162,6 +162,7 @@ def test_ors_parses_directions_and_sends_truck_profile() -> None:
     body = json.loads(request.content)
     assert body["coordinates"] == [[-87.6298, 41.8781], [-96.797, 32.7767]]
     assert body["instructions"] is False
+    assert body["radiuses"] == [25_000, 25_000]  # islands and centroids must still route
 
 
 @respx.mock
@@ -199,6 +200,16 @@ def test_ors_geocode_filters_non_us_and_empty() -> None:
     fixture["features"][0]["properties"]["country_a"] = "CAN"
     respx.get(f"{ORS}/geocode/search").mock(return_value=httpx.Response(200, json=fixture))
     assert client.geocode("Toronto") is None
+
+
+@respx.mock
+def test_ors_geocode_rejects_whole_state_fallbacks() -> None:
+    # "Chicgo, IL" fuzzy-matches the state of Illinois: an area, not a place to drive from.
+    fixture = load("ors_geocode.json")
+    fixture["features"][0]["properties"].update({"layer": "region", "label": "Illinois, USA"})
+    respx.get(f"{ORS}/geocode/search").mock(return_value=httpx.Response(200, json=fixture))
+
+    assert ORSClient(api_key="k", base_url=ORS).geocode("Chicgo, IL") is None
 
 
 def test_ors_requires_api_key() -> None:

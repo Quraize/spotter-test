@@ -15,6 +15,15 @@ from django.conf import settings
 from apps.routing.base import METERS_PER_MILE, Place, ProviderError, Route
 from apps.routing.http import make_client, request_json
 
+# ORS snaps endpoints to the road network within 350 m by default and refuses beyond that,
+# which rejects islands (Statue of Liberty) and area centroids (a ZIP or a county). Allow a
+# generous snap; the response still reports the road-snapped geometry.
+SNAP_RADIUS_METERS = 25_000
+
+# Geocoder hits that describe an area rather than a place. A fuzzy match that falls back to
+# a whole state or country ("Chicgo, IL" -> "Illinois") is not somewhere you can drive from.
+_AREA_LAYERS = frozenset({"country", "dependency", "macroregion", "region", "macrocounty"})
+
 
 class ORSClient:
     name = "ors"
@@ -45,6 +54,7 @@ class ORSClient:
             "coordinates": [list(start.lnglat), list(finish.lnglat)],
             "instructions": False,  # we only need geometry and totals; halves the payload
             "units": "m",
+            "radiuses": [SNAP_RADIUS_METERS, SNAP_RADIUS_METERS],
         }
         data = request_json(
             self._client,
@@ -84,6 +94,8 @@ class ORSClient:
         try:
             props = hit.get("properties", {})
             if props.get("country_a", "USA") != "USA":
+                return None
+            if props.get("layer") in _AREA_LAYERS:
                 return None
             lng, lat = hit["geometry"]["coordinates"][:2]
             return Place(
