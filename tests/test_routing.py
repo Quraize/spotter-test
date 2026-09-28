@@ -156,7 +156,7 @@ def test_ors_parses_directions_and_sends_truck_profile() -> None:
     assert route.provider == "ors"
     assert route.distance_miles == pytest.approx(summary["distance"] / METERS_PER_MILE)
     assert route.duration_minutes == pytest.approx(summary["duration"] / 60)
-    assert route.coordinates[-1] == (-96.797, 32.7767)
+    assert route.coordinates[-1] == tuple(fixture["features"][0]["geometry"]["coordinates"][-1])
     request = mocked.calls.last.request
     assert request.headers["Authorization"] == "k"
     body = json.loads(request.content)
